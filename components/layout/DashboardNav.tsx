@@ -2,32 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { LayoutDashboard, ListOrdered, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+const ITEMS = [
+  { seg: "", label: "Overview", icon: LayoutDashboard },
+  { seg: "/start-here", label: "Start Here", icon: ListOrdered },
+  { seg: "/flow", label: "Execution Flow", icon: Workflow },
+];
 
 export function DashboardNav({ id }: { id: string }) {
   const pathname = usePathname();
   const base = `/r/${id}`;
-  const items = [
-    { href: base, label: "Overview" },
-    { href: `${base}/start-here`, label: "Start Here" },
-    { href: `${base}/flow`, label: "Execution Flow" },
-  ];
 
   return (
-    <nav className="flex gap-1 border-b border-neutral-200 dark:border-neutral-800">
-      {items.map((item) => {
-        const active = pathname === item.href;
+    <nav className="inline-flex gap-1 rounded-xl border border-border bg-card p-1 shadow-sm">
+      {ITEMS.map((item) => {
+        const href = base + item.seg;
+        const active = pathname === href;
         return (
           <Link
-            key={item.href}
-            href={item.href}
+            key={href}
+            href={href}
             className={cn(
-              "-mb-px border-b-2 px-4 py-2.5 text-sm font-medium transition-colors",
+              "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
               active
-                ? "border-neutral-900 text-neutral-900 dark:border-white dark:text-white"
-                : "border-transparent text-neutral-500 hover:text-neutral-800 dark:hover:text-neutral-200",
+                ? "bg-accent text-accent-foreground shadow-sm"
+                : "text-muted-foreground hover:bg-muted hover:text-foreground",
             )}
           >
+            <item.icon className="h-4 w-4" />
             {item.label}
           </Link>
         );

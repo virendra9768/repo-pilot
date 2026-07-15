@@ -2,12 +2,12 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowRight, GitBranch, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 
 const DEMOS = [
   { key: "next-prisma-starter", label: "Next.js + Prisma" },
-  { key: "nest-starter", label: "NestJS" },
+  { key: "nest-starter", label: "NestJS API" },
 ];
 
 export function ImportForm() {
@@ -34,46 +34,65 @@ export function ImportForm() {
     }
   }
 
+  const busy = loading !== null;
+
   return (
     <div className="w-full max-w-xl">
-      <div className="flex gap-2">
-        <Input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="https://github.com/owner/repo"
-          disabled={loading !== null}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && url.trim()) importRepo({ url: url.trim() }, "url");
-          }}
-        />
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <GitBranch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="github.com/owner/repo"
+            disabled={busy}
+            className="h-11 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && url.trim()) importRepo({ url: url.trim() }, "url");
+            }}
+          />
+        </div>
         <Button
+          size="lg"
           onClick={() => url.trim() && importRepo({ url: url.trim() }, "url")}
-          disabled={loading !== null || !url.trim()}
+          disabled={busy || !url.trim()}
+          className="h-11"
         >
-          {loading === "url" ? "Analyzing…" : "Analyze"}
+          {loading === "url" ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing…
+            </>
+          ) : (
+            <>
+              Analyze <ArrowRight className="h-4 w-4" />
+            </>
+          )}
         </Button>
       </div>
 
-      <div className="mt-6">
-        <p className="mb-2 text-xs uppercase tracking-wide text-neutral-500">
-          or try a demo repo
-        </p>
-        <div className="flex flex-wrap gap-2">
-          {DEMOS.map((d) => (
-            <Button
-              key={d.key}
-              variant="outline"
-              onClick={() => importRepo({ demo: d.key }, d.key)}
-              disabled={loading !== null}
-            >
-              {loading === d.key ? "Analyzing…" : d.label}
-            </Button>
-          ))}
-        </div>
+      <div className="mt-5 flex flex-wrap items-center gap-2">
+        <span className="text-xs text-muted-foreground">or try a demo:</span>
+        {DEMOS.map((d) => (
+          <Button
+            key={d.key}
+            variant="outline"
+            size="sm"
+            onClick={() => importRepo({ demo: d.key }, d.key)}
+            disabled={busy}
+          >
+            {loading === d.key ? (
+              <>
+                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…
+              </>
+            ) : (
+              d.label
+            )}
+          </Button>
+        ))}
       </div>
 
       {error && (
-        <p className="mt-4 rounded-md border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-300">
+        <p className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
           {error}
         </p>
       )}

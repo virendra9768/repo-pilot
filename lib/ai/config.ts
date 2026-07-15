@@ -9,17 +9,12 @@ export function hasGeminiKey(): boolean {
 }
 
 /**
- * Ordered model candidates. The provider tries them in order, falling back to
- * the next on transient overload/rate-limit/not-found. `GEMINI_MODEL` (if set)
- * is tried first. Defaults chosen from what this account can actually reach:
- * a quality flash model, then lighter/stable aliases for resilience.
+ * The model to use, overridable via `GEMINI_MODEL`. Defaults to the
+ * `gemini-flash-lite-latest` alias: it's the flash model that's both fast and
+ * consistently available for this account (the heavier `-latest`/`3.5` aliases
+ * were returning 503 "high demand"). Transient errors are handled by retry in
+ * the provider, so a single reliable model is preferred over a fallback chain.
  */
-export function getGeminiModels(): string[] {
-  const defaults = [
-    "gemini-flash-lite-latest",
-    "gemini-3-flash-preview",
-    "gemini-flash-latest",
-  ];
-  const primary = process.env.GEMINI_MODEL?.trim();
-  return [...new Set(primary ? [primary, ...defaults] : defaults)];
+export function getGeminiModel(): string {
+  return process.env.GEMINI_MODEL?.trim() || "gemini-flash-lite-latest";
 }

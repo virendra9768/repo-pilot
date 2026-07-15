@@ -1,27 +1,28 @@
 import { GoogleGenAI } from "@google/genai";
 import { z, type ZodType } from "zod";
 import type { AIProvider, GenerateJSONArgs } from "./types";
-import { getGeminiApiKey, getGeminiModels } from "./config";
+import { getGeminiApiKey, getGeminiModel } from "./config";
+
+const MAX_ATTEMPTS = 4;
 
 /**
  * Live Gemini provider using structured JSON output. The zod schema is
  * converted to JSON Schema and passed as `responseJsonSchema`, then the parsed
  * response is validated with the same zod schema.
  *
- * Resilience: tries several models in order, falling back to the next on
- * transient overload/rate-limit/not-found; per model, one retry on an
- * empty/invalid response.
+ * Uses a single, reliable model and retries with exponential backoff on
+ * transient overload/rate-limit errors (503/429) or an empty/invalid response.
  */
 export class GeminiProvider implements AIProvider {
   readonly name = "gemini";
   private client: GoogleGenAI;
-  private models: string[];
+  private model: string;
 
   constructor() {
     const apiKey = getGeminiApiKey();
     if (!apiKey) throw new Error("GEMINI_API_KEY is not set");
     this.client = new GoogleGenAI({ apiKey });
-    this.models = getGeminiModels();
+    this.model = getGeminiModel();
   }
 
   async generateJSON<T>({ system, prompt, schema }: GenerateJSONArgs<T>): Promise<T> {
@@ -29,34 +30,32 @@ export class GeminiProvider implements AIProvider {
     const contents = system ? `${system}\n\n${prompt}` : prompt;
 
     let lastError: unknown;
-    for (const model of this.models) {
-      for (let attempt = 0; attempt < 2; attempt++) {
-        let text: string | undefined;
-        try {
-          const response = await this.client.models.generateContent({
-            model,
-            contents,
-            config: { responseMimeType: "application/json", responseJsonSchema },
-          });
-          text = response.text;
-        } catch (err) {
-          lastError = err;
-          if (isTransient(err)) {
-            await sleep(400);
-            break; // fall back to the next model
-          }
-          throw new Error(`Gemini request failed: ${message(err)}`);
+    for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+      let text: string | undefined;
+      try {
+        const response = await this.client.models.generateContent({
+          model: this.model,
+          contents,
+          config: { responseMimeType: "application/json", responseJsonSchema },
+        });
+        text = response.text;
+      } catch (err) {
+        lastError = err;
+        if (isTransient(err) && attempt < MAX_ATTEMPTS - 1) {
+          await sleep(500 * 2 ** attempt); // 0.5s, 1s, 2s
+          continue;
         }
+        throw new Error(`Gemini request failed: ${message(err)}`);
+      }
 
-        if (!text) {
-          lastError = new Error("Empty response from Gemini");
-          continue; // retry same model once
-        }
-        try {
-          return schema.parse(JSON.parse(text));
-        } catch (err) {
-          lastError = err; // malformed/invalid JSON — retry same model once
-        }
+      if (!text) {
+        lastError = new Error("Empty response from Gemini");
+        continue;
+      }
+      try {
+        return schema.parse(JSON.parse(text));
+      } catch (err) {
+        lastError = err; // malformed/invalid JSON — try again
       }
     }
     throw new Error(`Gemini response failed: ${message(lastError)}`);

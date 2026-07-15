@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from "react";
 import {
   ReactFlow,
   Background,
+  BackgroundVariant,
   Controls,
+  MiniMap,
   MarkerType,
   useNodesState,
   useEdgesState,
@@ -12,10 +14,10 @@ import {
   type Edge,
 } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
+import { Loader2, MousePointerClick, Search, Sparkles } from "lucide-react";
 import type { ExecutionFlowResult } from "@/engine/prompts/executionFlow";
 import { fetchJson } from "@/hooks/useAiResource";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { ErrorState } from "@/components/shared/states";
 import { FlowNode } from "./FlowNode";
 import { computeLayout } from "./layout";
@@ -30,6 +32,13 @@ interface FlowResponse {
   flow: ExecutionFlowResult;
   unknownFiles: string[];
 }
+
+const EDGE_OPTIONS = {
+  type: "smoothstep" as const,
+  animated: true,
+  style: { stroke: "var(--accent)", strokeWidth: 1.5 },
+  markerEnd: { type: MarkerType.ArrowClosed, color: "var(--accent)" },
+};
 
 export function ExecutionFlow({ id }: { id: string }) {
   const [question, setQuestion] = useState("");
@@ -72,8 +81,7 @@ export function ExecutionFlow({ id }: { id: string }) {
           source: e.source,
           target: e.target,
           label: e.label || undefined,
-          animated: true,
-          markerEnd: { type: MarkerType.ArrowClosed },
+          ...EDGE_OPTIONS,
         })),
     );
   }, [result, unknown, setNodes, setEdges]);
@@ -104,17 +112,22 @@ export function ExecutionFlow({ id }: { id: string }) {
 
   return (
     <div className="space-y-4">
-      <div className="flex gap-2">
-        <Input
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          placeholder="Ask how something works, e.g. “how does a quote get created?”"
-          disabled={submitting}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") ask(question);
-          }}
-        />
-        <Button onClick={() => ask(question)} disabled={submitting || !question.trim()}>
+      <div className="flex flex-col gap-2 sm:flex-row">
+        <div className="relative flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Ask how something works, e.g. “how does a quote get created?”"
+            disabled={submitting}
+            className="h-11 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
+            onKeyDown={(e) => {
+              if (e.key === "Enter") ask(question);
+            }}
+          />
+        </div>
+        <Button className="h-11" onClick={() => ask(question)} disabled={submitting || !question.trim()}>
+          {submitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
           {submitting ? "Tracing…" : "Trace"}
         </Button>
       </div>
@@ -128,7 +141,7 @@ export function ExecutionFlow({ id }: { id: string }) {
               ask(s);
             }}
             disabled={submitting}
-            className="rounded-full border border-neutral-300 px-3 py-1 text-xs text-neutral-600 hover:bg-neutral-100 disabled:opacity-50 dark:border-neutral-700 dark:text-neutral-300 dark:hover:bg-neutral-800"
+            className="rounded-full border border-border bg-card px-3 py-1 text-xs text-muted-foreground shadow-sm transition-colors hover:bg-muted hover:text-foreground disabled:opacity-50"
           >
             {s}
           </button>
@@ -138,15 +151,17 @@ export function ExecutionFlow({ id }: { id: string }) {
       {error && <ErrorState message={error} onRetry={() => ask(question)} />}
 
       {result && (
-        <p className="rounded-md bg-neutral-50 p-3 text-sm text-neutral-700 dark:bg-neutral-900 dark:text-neutral-300">
-          {result.summary}
-        </p>
+        <div className="flex items-start gap-2 rounded-xl border border-accent/30 bg-accent/5 p-4">
+          <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-accent" />
+          <p className="text-sm leading-relaxed text-foreground">{result.summary}</p>
+        </div>
       )}
 
       <div className="grid gap-4 lg:grid-cols-[1fr_20rem]">
-        <div className="h-[560px] overflow-hidden rounded-lg border border-neutral-200 dark:border-neutral-800">
+        <div className="h-[560px] overflow-hidden rounded-xl border border-border bg-card">
           {submitting ? (
-            <div className="flex h-full items-center justify-center text-sm text-neutral-500">
+            <div className="flex h-full flex-col items-center justify-center gap-3 text-sm text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin text-accent" />
               Tracing the flow…
             </div>
           ) : result ? (
@@ -156,44 +171,55 @@ export function ExecutionFlow({ id }: { id: string }) {
               onNodesChange={onNodesChange}
               onEdgesChange={onEdgesChange}
               onNodeClick={(_, node) => setSelectedId(node.id)}
+              onPaneClick={() => setSelectedId(null)}
               nodeTypes={nodeTypes}
+              colorMode="system"
               fitView
+              fitViewOptions={{ padding: 0.2 }}
               proOptions={{ hideAttribution: true }}
             >
-              <Background />
-              <Controls />
+              <Background variant={BackgroundVariant.Dots} gap={18} size={1} />
+              <Controls showInteractive={false} />
+              <MiniMap pannable zoomable className="!bg-muted" />
             </ReactFlow>
           ) : (
-            <div className="flex h-full items-center justify-center px-8 text-center text-sm text-neutral-500">
-              Ask a question above to see how the codebase handles it — as a
-              clickable execution-flow diagram.
+            <div className="flex h-full flex-col items-center justify-center gap-2 px-8 text-center">
+              <Sparkles className="h-6 w-6 text-accent" />
+              <p className="text-sm text-muted-foreground">
+                Ask a question above to see how the codebase handles it — as a
+                clickable execution-flow diagram.
+              </p>
             </div>
           )}
         </div>
 
-        <aside className="rounded-lg border border-neutral-200 p-4 dark:border-neutral-800">
+        <aside className="rounded-xl border border-border bg-card p-4 shadow-sm">
           {selected ? (
             <div className="space-y-3">
               <div>
-                <div className="text-xs uppercase tracking-wide text-neutral-400">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-accent">
                   {selected.type}
                 </div>
-                <h3 className="text-sm font-semibold">{selected.title}</h3>
+                <h3 className="mt-0.5 text-sm font-semibold">{selected.title}</h3>
               </div>
               {selected.file && (
-                <code className="block truncate rounded bg-neutral-100 px-1.5 py-1 text-xs dark:bg-neutral-800">
+                <code className="block truncate rounded-md bg-muted px-2 py-1.5 font-mono text-xs">
                   {selected.file}
                 </code>
               )}
-              <p className="text-sm text-neutral-600 dark:text-neutral-400">
+              <p className="text-sm leading-relaxed text-muted-foreground">
                 {selected.explanation}
               </p>
               {selected.dependencies.length > 0 && (
                 <div>
-                  <div className="text-xs font-medium text-neutral-500">Depends on</div>
-                  <ul className="mt-1 space-y-1">
+                  <div className="text-xs font-medium text-foreground">Depends on</div>
+                  <ul className="mt-1.5 space-y-1">
                     {selected.dependencies.map((dep) => (
-                      <li key={dep} className="truncate text-xs text-neutral-500" title={dep}>
+                      <li
+                        key={dep}
+                        className="truncate font-mono text-xs text-muted-foreground"
+                        title={dep}
+                      >
                         {dep}
                       </li>
                     ))}
@@ -202,11 +228,14 @@ export function ExecutionFlow({ id }: { id: string }) {
               )}
             </div>
           ) : (
-            <p className="text-sm text-neutral-400">
-              {result
-                ? "Click a node to see its explanation, file, and dependencies."
-                : "Node details appear here."}
-            </p>
+            <div className="flex h-full flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground">
+              <MousePointerClick className="h-5 w-5" />
+              <p className="text-sm">
+                {result
+                  ? "Click a node to see its explanation, file, and dependencies."
+                  : "Node details appear here."}
+              </p>
+            </div>
           )}
         </aside>
       </div>
