@@ -40,6 +40,7 @@ export function ImportForm() {
     setError(null);
     setTarget(label);
     startStageTicker();
+    const started = Date.now();
     try {
       const res = await fetch("/api/repos", {
         method: "POST",
@@ -48,9 +49,13 @@ export function ImportForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
-      stopTicker();
-      setDone(true);
-      setTimeout(() => router.push(`/r/${data.id}`), 550);
+      // Keep the staged animation visible for a beat even on fast responses.
+      const wait = Math.max(0, 1100 - (Date.now() - started));
+      setTimeout(() => {
+        stopTicker();
+        setDone(true);
+        setTimeout(() => router.push(`/r/${data.id}`), 550);
+      }, wait);
     } catch (err) {
       stopTicker();
       setPhase("error");
@@ -75,7 +80,7 @@ export function ImportForm() {
             className="w-full max-w-xl"
           >
             <div className="group relative">
-              <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-accent-2/40 to-accent/40 opacity-0 blur transition-opacity duration-300 group-focus-within:opacity-100" />
+              <div className="absolute -inset-px rounded-2xl bg-linear-to-r from-accent-2/40 to-accent/40 opacity-0 blur transition-opacity duration-300 group-focus-within:opacity-100" />
               <div className="relative flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 sm:flex-row sm:items-center">
                 <div className="relative flex-1">
                   <GitBranch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />

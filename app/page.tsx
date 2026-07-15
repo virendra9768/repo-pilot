@@ -47,7 +47,7 @@ export default function Home() {
           Understand any codebase
           <br />
           in{" "}
-          <span className="bg-gradient-to-r from-accent-bright to-accent-2 bg-clip-text text-transparent">
+          <span className="bg-linear-to-r from-accent-bright to-accent-2 bg-clip-text text-transparent">
             minutes
           </span>
         </h1>

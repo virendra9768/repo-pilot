@@ -50,7 +50,7 @@ export function AnalysisProgress({
 
       <div className="mt-4 h-1 overflow-hidden rounded-full bg-muted">
         <motion.div
-          className="h-full rounded-full bg-gradient-to-r from-accent-2 to-accent"
+          className="h-full rounded-full bg-linear-to-r from-accent-2 to-accent"
           initial={{ width: "4%" }}
           animate={{ width: `${progress}%` }}
           transition={{ ease: "easeOut", duration: 0.6 }}
