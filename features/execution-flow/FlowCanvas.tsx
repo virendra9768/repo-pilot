@@ -77,8 +77,11 @@ export function FlowCanvas({
           animated: true,
           style: { stroke: "var(--accent)", strokeWidth: 1.5, opacity: 0.6 },
           markerEnd: { type: MarkerType.ArrowClosed, color: "var(--accent)" },
-          labelStyle: { fill: "var(--muted-foreground)", fontSize: 11 },
-          labelBgStyle: { fill: "var(--card)" },
+          labelStyle: { fill: "var(--foreground)", fontSize: 11, fontWeight: 500 },
+          labelShowBg: true,
+          labelBgPadding: [8, 4] as [number, number],
+          labelBgBorderRadius: 6,
+          labelBgStyle: { fill: "var(--card)", stroke: "var(--border)", strokeWidth: 1, fillOpacity: 0.96 },
         })),
     );
   }, [result, unknown, setNodes, setEdges]);

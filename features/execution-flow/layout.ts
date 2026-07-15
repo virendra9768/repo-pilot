@@ -1,7 +1,9 @@
 import type { ExecutionFlowResult } from "@/engine/prompts/executionFlow";
 
-const COL_WIDTH = 300;
-const ROW_HEIGHT = 140;
+// Nodes are 240px wide; keep generous column spacing so edge labels between
+// two nodes have room to render without overlapping either node.
+const COL_WIDTH = 400;
+const ROW_HEIGHT = 150;
 
 /**
  * Deterministic layered layout: x by BFS depth from roots (no incoming edge),
