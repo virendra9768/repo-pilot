@@ -4,8 +4,8 @@ import { cn } from "@/lib/utils";
 type Variant = "default" | "accent" | "outline";
 
 const VARIANTS: Record<Variant, string> = {
-  default: "border-transparent bg-muted text-muted-foreground",
-  accent: "border-transparent bg-accent/10 text-accent",
+  default: "border-border bg-muted text-muted-foreground",
+  accent: "border-accent/20 bg-accent/10 text-accent-bright",
   outline: "border-border text-muted-foreground",
 };
 
@@ -17,7 +17,7 @@ export function Badge({ className, variant = "default", ...props }: BadgeProps) 
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium",
         VARIANTS[variant],
         className,
       )}

@@ -1,9 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { ArrowRight, GitBranch, Loader2 } from "lucide-react";
+import { AnimatePresence, motion } from "framer-motion";
+import { ArrowRight, CircleAlert, GitBranch, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ANALYSIS_STAGES, AnalysisProgress } from "./AnalysisProgress";
 
 const DEMOS = [
   { key: "next-prisma-starter", label: "Next.js + Prisma" },
@@ -13,12 +15,31 @@ const DEMOS = [
 export function ImportForm() {
   const router = useRouter();
   const [url, setUrl] = useState("");
-  const [loading, setLoading] = useState<string | null>(null);
+  const [phase, setPhase] = useState<"idle" | "running" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [target, setTarget] = useState("");
+  const [stageIndex, setStageIndex] = useState(0);
+  const [done, setDone] = useState(false);
+  const timer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  async function importRepo(body: { url: string } | { demo: string }, tag: string) {
-    setLoading(tag);
+  function startStageTicker() {
+    setStageIndex(0);
+    setDone(false);
+    timer.current = setInterval(() => {
+      setStageIndex((i) => Math.min(i + 1, ANALYSIS_STAGES.length - 2));
+    }, 850);
+  }
+
+  function stopTicker() {
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+  }
+
+  async function importRepo(body: { url: string } | { demo: string }, label: string) {
+    setPhase("running");
     setError(null);
+    setTarget(label);
+    startStageTicker();
     try {
       const res = await fetch("/api/repos", {
         method: "POST",
@@ -27,75 +48,85 @@ export function ImportForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
-      router.push(`/r/${data.id}`);
+      stopTicker();
+      setDone(true);
+      setTimeout(() => router.push(`/r/${data.id}`), 550);
     } catch (err) {
+      stopTicker();
+      setPhase("error");
       setError(err instanceof Error ? err.message : String(err));
-      setLoading(null);
     }
   }
 
-  const busy = loading !== null;
+  const cleanTarget = (u: string) => u.replace(/^https?:\/\//, "").replace(/\.git$/, "");
 
   return (
-    <div className="w-full max-w-xl">
-      <div className="flex flex-col gap-2 sm:flex-row">
-        <div className="relative flex-1">
-          <GitBranch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="github.com/owner/repo"
-            disabled={busy}
-            className="h-11 w-full rounded-lg border border-border bg-card pl-9 pr-3 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent disabled:opacity-50"
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && url.trim()) importRepo({ url: url.trim() }, "url");
-            }}
-          />
-        </div>
-        <Button
-          size="lg"
-          onClick={() => url.trim() && importRepo({ url: url.trim() }, "url")}
-          disabled={busy || !url.trim()}
-          className="h-11"
-        >
-          {loading === "url" ? (
-            <>
-              <Loader2 className="h-4 w-4 animate-spin" /> Analyzing…
-            </>
-          ) : (
-            <>
-              Analyze <ArrowRight className="h-4 w-4" />
-            </>
-          )}
-        </Button>
-      </div>
-
-      <div className="mt-5 flex flex-wrap items-center gap-2">
-        <span className="text-xs text-muted-foreground">or try a demo:</span>
-        {DEMOS.map((d) => (
-          <Button
-            key={d.key}
-            variant="outline"
-            size="sm"
-            onClick={() => importRepo({ demo: d.key }, d.key)}
-            disabled={busy}
+    <div className="flex w-full flex-col items-center">
+      <AnimatePresence mode="wait">
+        {phase === "running" ? (
+          <AnalysisProgress key="progress" target={target} stageIndex={stageIndex} done={done} />
+        ) : (
+          <motion.div
+            key="form"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0, y: -8 }}
+            transition={{ duration: 0.3 }}
+            className="w-full max-w-xl"
           >
-            {loading === d.key ? (
-              <>
-                <Loader2 className="h-3.5 w-3.5 animate-spin" /> Analyzing…
-              </>
-            ) : (
-              d.label
-            )}
-          </Button>
-        ))}
-      </div>
+            <div className="group relative">
+              <div className="absolute -inset-px rounded-2xl bg-gradient-to-r from-accent-2/40 to-accent/40 opacity-0 blur transition-opacity duration-300 group-focus-within:opacity-100" />
+              <div className="relative flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 sm:flex-row sm:items-center">
+                <div className="relative flex-1">
+                  <GitBranch className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-faint" />
+                  <input
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                    placeholder="github.com/owner/repo"
+                    className="h-11 w-full rounded-xl bg-transparent pl-9 pr-3 text-sm text-foreground placeholder:text-faint focus:outline-none"
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && url.trim())
+                        importRepo({ url: url.trim() }, cleanTarget(url.trim()));
+                    }}
+                  />
+                </div>
+                <Button
+                  size="lg"
+                  className="h-11 shrink-0"
+                  onClick={() =>
+                    url.trim() && importRepo({ url: url.trim() }, cleanTarget(url.trim()))
+                  }
+                  disabled={!url.trim()}
+                >
+                  <Sparkles className="h-4 w-4" />
+                  Generate Guide
+                  <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
 
-      {error && (
-        <p className="mt-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/60 dark:bg-red-950/40 dark:text-red-300">
-          {error}
-        </p>
-      )}
+            <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+              <span className="text-xs text-faint">or explore a demo</span>
+              {DEMOS.map((d) => (
+                <button
+                  key={d.key}
+                  onClick={() => importRepo({ demo: d.key }, d.label)}
+                  className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs font-medium text-muted-foreground transition-all hover:-translate-y-px hover:border-border-strong hover:text-foreground"
+                >
+                  {d.label}
+                </button>
+              ))}
+            </div>
+
+            {error && (
+              <div className="mt-4 flex items-center gap-2 rounded-xl border border-red-500/20 bg-red-500/5 px-4 py-3 text-sm text-red-300">
+                <CircleAlert className="h-4 w-4 shrink-0" />
+                {error}
+              </div>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }

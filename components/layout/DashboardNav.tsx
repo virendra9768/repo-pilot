@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { motion } from "framer-motion";
 import { LayoutDashboard, ListOrdered, Workflow } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -16,7 +17,7 @@ export function DashboardNav({ id }: { id: string }) {
   const base = `/r/${id}`;
 
   return (
-    <nav className="inline-flex gap-1 rounded-xl border border-border bg-card p-1 shadow-sm">
+    <nav className="inline-flex gap-1 rounded-xl border border-border bg-card p-1">
       {ITEMS.map((item) => {
         const href = base + item.seg;
         const active = pathname === href;
@@ -25,14 +26,21 @@ export function DashboardNav({ id }: { id: string }) {
             key={href}
             href={href}
             className={cn(
-              "flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
-              active
-                ? "bg-accent text-accent-foreground shadow-sm"
-                : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              "relative flex items-center gap-2 rounded-lg px-3.5 py-2 text-sm font-medium transition-colors",
+              active ? "text-accent-foreground" : "text-muted-foreground hover:text-foreground",
             )}
           >
-            <item.icon className="h-4 w-4" />
-            {item.label}
+            {active && (
+              <motion.span
+                layoutId="nav-active-pill"
+                transition={{ type: "spring", stiffness: 400, damping: 32 }}
+                className="absolute inset-0 rounded-lg bg-accent shadow-[0_6px_20px_-8px_var(--accent-glow)]"
+              />
+            )}
+            <span className="relative z-10 flex items-center gap-2">
+              <item.icon className="h-4 w-4" />
+              {item.label}
+            </span>
           </Link>
         );
       })}
