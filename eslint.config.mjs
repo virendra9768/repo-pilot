@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Vendored demo repositories — analyzed at runtime, never part of our build.
+    "demo-repos/**",
   ]),
 ]);
 
