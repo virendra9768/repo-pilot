@@ -7,7 +7,9 @@ import { analyzeDatabase } from "./analyzer/database";
 import { analyzeDependencies } from "./analyzer/dependencies";
 import { buildGraph } from "./graph/build";
 import { generateUnderstandingMap } from "./context/understanding-map";
+import { buildContextPack } from "./context/context-pack";
 import type { UnderstandingMap } from "@/types/understanding-map";
+import type { RepoContextPack } from "@/types/analysis";
 
 export type { AnalyzeInput } from "./clone";
 
@@ -19,6 +21,8 @@ export interface AnalysisResult {
     fileCount: number;
   };
   understandingMap: UnderstandingMap;
+  /** Extra detail captured before workspace cleanup (server-side use). */
+  contextPack: RepoContextPack;
 }
 
 /**
@@ -48,6 +52,9 @@ export async function analyzeRepository(input: AnalyzeInput): Promise<AnalysisRe
       graph,
     });
 
+    // Capture extra detail while the files are still on disk.
+    const contextPack = buildContextPack(files, metadata, understandingMap);
+
     return {
       workspace: {
         displayName: workspace.displayName,
@@ -56,6 +63,7 @@ export async function analyzeRepository(input: AnalyzeInput): Promise<AnalysisRe
         fileCount: files.length,
       },
       understandingMap,
+      contextPack,
     };
   } finally {
     await cleanup();

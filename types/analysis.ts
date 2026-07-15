@@ -64,6 +64,21 @@ export interface ImportLink {
   to: string;
 }
 
+/**
+ * Extra repo detail captured at analyze time (before the temp workspace is
+ * deleted) so the AI layer and features can work without the files on disk.
+ */
+export interface RepoContextPack {
+  /** First ~2 KB of the README, if any. */
+  readmeExcerpt?: string;
+  /** Repo-relative path -> line count (text/code files) for reading-time. */
+  fileLines: Record<string, number>;
+  /** Repo-relative path -> first ~40 lines, for top critical files. */
+  snippets: Record<string, string>;
+  /** Compact top-level folder summary, e.g. "app/ (12 files)". */
+  folderTree: string[];
+}
+
 /** How the repo workspace was obtained, for reporting/cleanup. */
 export interface WorkspaceInfo {
   root: string;
