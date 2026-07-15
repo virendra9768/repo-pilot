@@ -1,4 +1,4 @@
-import { z, type ZodType } from "zod";
+import { z } from "zod";
 import type { AIProvider, GenerateJSONArgs } from "./types";
 
 /**

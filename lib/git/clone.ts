@@ -24,10 +24,10 @@ export async function shallowClone(
   }
 }
 
-/** Best-effort recursive delete; never throws. */
+/** Best-effort recursive delete; never throws. Retries transient Windows locks. */
 export async function removeDir(dir: string): Promise<void> {
   try {
-    await rm(dir, { recursive: true, force: true });
+    await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
   } catch {
     /* ignore cleanup errors */
   }
