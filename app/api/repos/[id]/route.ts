@@ -1,4 +1,4 @@
-import { getRepo } from "@/lib/persistence/store";
+import { getRepoOrRehydrate } from "@/lib/persistence/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -8,7 +8,7 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> },
 ) {
   const { id } = await params;
-  const repo = await getRepo(id);
+  const repo = await getRepoOrRehydrate(id);
   if (!repo) {
     return Response.json({ error: "Repository not analyzed" }, { status: 404 });
   }

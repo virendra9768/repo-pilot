@@ -19,6 +19,7 @@ import type { ExecutionFlowResult } from "@/engine/prompts/executionFlow";
 import { fetchJson } from "@/hooks/useAiResource";
 import { ErrorState } from "@/components/shared/states";
 import { nodeCategory } from "@/components/shared/icons";
+import { fileUrl } from "@/lib/utils/github";
 import { cn } from "@/lib/utils";
 import type { FocusTarget } from "./FlowCanvas";
 
@@ -45,14 +46,6 @@ interface FlowResponse {
 }
 
 type FlowNode = ExecutionFlowResult["nodes"][number];
-
-function githubFileUrl(id: string, file: string): string | null {
-  if (file && id.startsWith("gh__")) {
-    const [owner, repo] = id.slice(4).split("__");
-    if (owner && repo) return `https://github.com/${owner}/${repo}/blob/HEAD/${file}`;
-  }
-  return null;
-}
 
 export function ExecutionFlow({ id }: { id: string }) {
   const [question, setQuestion] = useState("");
@@ -222,7 +215,7 @@ export function ExecutionFlow({ id }: { id: string }) {
           hasResult={!!result}
           incomingTitles={incoming.map((e) => nodeById(e.source)).filter(Boolean) as FlowNode[]}
           outgoingTitles={outgoing.map((e) => nodeById(e.target)).filter(Boolean) as FlowNode[]}
-          fileUrl={selected ? githubFileUrl(id, selected.file) : null}
+          fileUrl={selected ? fileUrl(id, selected.file) : null}
           onFocus={() => selected && focusNode(selected.id)}
           onJump={focusNode}
         />

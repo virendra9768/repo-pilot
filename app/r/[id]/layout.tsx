@@ -8,23 +8,11 @@ import {
   Plus,
   TriangleAlert,
 } from "lucide-react";
-import { getRepo } from "@/lib/persistence/store";
+import { getRepoOrRehydrate } from "@/lib/persistence/store";
 import { DashboardNav } from "@/components/layout/DashboardNav";
 import { Chip } from "@/components/ui/chip";
 import { techIcon } from "@/components/shared/icons";
-
-const DEMO_SOURCE: Record<string, string> = {
-  "next-prisma-starter": "https://github.com/prisma/prisma-examples",
-  "nest-starter": "https://github.com/nestjs/typescript-starter",
-};
-
-function githubUrlFor(id: string): string | null {
-  if (id.startsWith("gh__")) {
-    const [owner, repo] = id.slice(4).split("__");
-    if (owner && repo) return `https://github.com/${owner}/${repo}`;
-  }
-  return DEMO_SOURCE[id] ?? null;
-}
+import { repoUrl } from "@/lib/utils/github";
 
 export default async function RepoLayout({
   children,
@@ -34,7 +22,7 @@ export default async function RepoLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const repo = await getRepo(id);
+  const repo = await getRepoOrRehydrate(id);
 
   if (!repo) {
     return (
@@ -57,7 +45,7 @@ export default async function RepoLayout({
   const techs = understandingMap.technologies;
   const language =
     techs.find((t) => /typescript|javascript/i.test(t.name))?.name ?? techs[0]?.name;
-  const githubUrl = githubUrlFor(id);
+  const githubUrl = repoUrl(id);
 
   return (
     <div className="min-h-screen">

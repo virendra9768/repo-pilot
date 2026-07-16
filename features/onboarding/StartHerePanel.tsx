@@ -7,19 +7,12 @@ import { useAiResource, fetchJson } from "@/hooks/useAiResource";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ErrorState } from "@/components/shared/states";
 import { cn } from "@/lib/utils";
+import { fileUrl } from "@/lib/utils/github";
 
 function difficulty(minutes: number) {
   if (minutes <= 1) return { label: "Easy", cls: "text-emerald-300 border-emerald-500/20 bg-emerald-500/10" };
   if (minutes <= 3) return { label: "Medium", cls: "text-amber-300 border-amber-500/20 bg-amber-500/10" };
   return { label: "Advanced", cls: "text-rose-300 border-rose-500/20 bg-rose-500/10" };
-}
-
-function githubFileUrl(id: string, path: string): string | null {
-  if (id.startsWith("gh__")) {
-    const [owner, repo] = id.slice(4).split("__");
-    if (owner && repo) return `https://github.com/${owner}/${repo}/blob/HEAD/${path}`;
-  }
-  return null;
 }
 
 export function StartHerePanel({ id }: { id: string }) {
@@ -62,7 +55,7 @@ export function StartHerePanel({ id }: { id: string }) {
         <div className="absolute left-[19px] top-2 bottom-2 w-px bg-linear-to-b from-accent/50 via-border to-transparent" />
         {data.steps.map((step, i) => {
           const diff = difficulty(step.readingTimeMinutes);
-          const url = githubFileUrl(id, step.path);
+          const url = fileUrl(id, step.path);
           const Wrapper = url ? "a" : "div";
           return (
             <motion.li

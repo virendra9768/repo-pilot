@@ -1,23 +1,24 @@
 import { getRepoOrRehydrate } from "@/lib/persistence/store";
 import { getProvider } from "@/lib/ai";
-import { executionFlowContext, knownFilePaths } from "@/engine/context/slices";
+import { askDeveloperContext, knownFilePaths } from "@/engine/context/slices";
 import {
-  buildExecutionFlowPrompt,
-  executionFlowSchema,
-} from "@/engine/prompts/executionFlow";
+  buildAskDeveloperPrompt,
+  askDeveloperSchema,
+  type ChatMessage,
+} from "@/engine/prompts/askDeveloper";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  let body: { id?: string; question?: string };
+  let body: { id?: string; question?: string; history?: ChatMessage[] };
   try {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  const { id, question } = body ?? {};
+  const { id, question, history = [] } = body ?? {};
   if (!id || !question?.trim()) {
     return Response.json({ error: "Provide 'id' and 'question'" }, { status: 400 });
   }
@@ -26,22 +27,20 @@ export async function POST(request: Request) {
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {
-    const ctx = executionFlowContext(repo, question.trim());
-    const { system, prompt } = buildExecutionFlowPrompt(ctx);
-    const flow = await getProvider().generateJSON({
+    const { system, prompt } = buildAskDeveloperPrompt(
+      askDeveloperContext(repo),
+      question.trim(),
+      history.slice(-6),
+    );
+    const answer = await getProvider().generateJSON({
       system,
       prompt,
-      schema: executionFlowSchema,
-      cacheKey: `flow:${id}:${question.trim()}`,
+      schema: askDeveloperSchema,
     });
-
-    // Flag any AI-referenced files that aren't real paths (grounding check).
+    // Keep only references that are real files.
     const known = knownFilePaths(repo);
-    const unknownFiles = [
-      ...new Set(flow.nodes.map((n) => n.file).filter((f) => f && !known.has(f))),
-    ];
-
-    return Response.json({ flow, unknownFiles });
+    const references = answer.references.filter((r) => known.has(r));
+    return Response.json({ answer: { ...answer, references } });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({ error: message }, { status: 500 });

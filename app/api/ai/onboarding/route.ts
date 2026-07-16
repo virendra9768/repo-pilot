@@ -1,7 +1,7 @@
 import { getRepoOrRehydrate } from "@/lib/persistence/store";
 import { getProvider } from "@/lib/ai";
-import { overviewContext } from "@/engine/context/slices";
-import { buildOverviewPrompt, overviewSchema } from "@/engine/prompts/overview";
+import { onboardingContext } from "@/engine/context/slices";
+import { buildOnboardingPrompt, onboardingSchema } from "@/engine/prompts/onboarding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -14,14 +14,14 @@ export async function GET(request: Request) {
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {
-    const { system, prompt } = buildOverviewPrompt(overviewContext(repo));
-    const overview = await getProvider().generateJSON({
+    const { system, prompt } = buildOnboardingPrompt(onboardingContext(repo));
+    const onboarding = await getProvider().generateJSON({
       system,
       prompt,
-      schema: overviewSchema,
-      cacheKey: `overview:${id}`,
+      schema: onboardingSchema,
+      cacheKey: `onboarding:${id}`,
     });
-    return Response.json({ overview });
+    return Response.json({ onboarding });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({ error: message }, { status: 500 });

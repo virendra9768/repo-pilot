@@ -1,4 +1,4 @@
-import { getRepo } from "@/lib/persistence/store";
+import { getRepoOrRehydrate } from "@/lib/persistence/store";
 import { getProvider } from "@/lib/ai";
 import { startHereContext } from "@/engine/context/slices";
 import { buildStartHerePrompt, startHereSchema } from "@/engine/prompts/startHere";
@@ -10,7 +10,7 @@ export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
 
-  const repo = await getRepo(id);
+  const repo = await getRepoOrRehydrate(id);
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {

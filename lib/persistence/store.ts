@@ -37,6 +37,33 @@ export async function getRepo(id: string): Promise<AnalyzedRepo | undefined> {
   return onDisk;
 }
 
+/** Reconstruct the analyze input from an id (for cache-miss re-hydration). */
+function inputFromId(id: string): AnalyzeInput | null {
+  const demo = resolveDemoKey(id);
+  if (demo) return { kind: "demo", demo };
+  if (id.startsWith("gh__")) {
+    const [owner, repo] = id.slice(4).split("__");
+    if (owner && repo) return { kind: "url", url: `https://github.com/${owner}/${repo}` };
+  }
+  return null;
+}
+
+/**
+ * Like getRepo, but re-analyzes from the id on a cache miss (server restart,
+ * fresh navigation). Demo repos re-analyze instantly and without git.
+ */
+export async function getRepoOrRehydrate(id: string): Promise<AnalyzedRepo | undefined> {
+  const cached = await getRepo(id);
+  if (cached) return cached;
+  const input = inputFromId(id);
+  if (!input) return undefined;
+  try {
+    return await getOrAnalyze(input);
+  } catch {
+    return undefined;
+  }
+}
+
 /** Return cached analysis for an input, or run the engine and cache it. */
 export async function getOrAnalyze(input: AnalyzeInput): Promise<AnalyzedRepo> {
   const id = computeId(input);
