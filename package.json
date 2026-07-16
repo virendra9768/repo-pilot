@@ -2,14 +2,17 @@
   "name": "repo-pilot",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "warm-demo": "node scripts/warm-demo-cache.mjs"
   },
   "dependencies": {
-    "@google/genai": "^2.11.0",
     "@xyflow/react": "^12.11.2",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",

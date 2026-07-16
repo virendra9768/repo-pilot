@@ -1,0 +1,12 @@
+# Build context excludes — keep the image lean and never ship secrets.
+# NOTE: demo-repos/ and cache-seed/ are intentionally NOT ignored — they ship in the image.
+node_modules
+.next
+out
+.git
+.cache
+dev.log
+*.log
+.env*
+npm-debug.log*
+.DS_Store

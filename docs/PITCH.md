@@ -34,4 +34,4 @@ actual files, and the app flags anything it can't verify.
 
 ## Stack
 Next.js 16 · TypeScript · Tailwind v4 · Framer Motion · React Flow · `simple-git` ·
-Gemini (structured JSON output) behind a swappable provider abstraction.
+OpenRouter (structured JSON output) behind a swappable provider abstraction.

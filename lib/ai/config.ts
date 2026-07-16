@@ -1,20 +1,35 @@
 /** Central AI configuration read from the environment. */
 
-export function getGeminiApiKey(): string | undefined {
-  return process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY || undefined;
+export function getOpenRouterApiKey(): string | undefined {
+  return process.env.OPENROUTER_API_KEY || undefined;
 }
 
-export function hasGeminiKey(): boolean {
-  return Boolean(getGeminiApiKey());
+export function hasOpenRouterKey(): boolean {
+  return Boolean(getOpenRouterApiKey());
 }
 
 /**
- * The model to use, overridable via `GEMINI_MODEL`. Defaults to the
- * `gemini-flash-lite-latest` alias: it's the flash model that's both fast and
- * consistently available for this account (the heavier `-latest`/`3.5` aliases
- * were returning 503 "high demand"). Transient errors are handled by retry in
- * the provider, so a single reliable model is preferred over a fallback chain.
+ * Ordered OpenRouter model candidates. The provider tries them in order,
+ * falling back on transient overload / rate-limit / not-found.
+ *  - primary: a fast, JSON-reliable free model (benchmarked ~sub-second),
+ *    overridable via `OPENROUTER_MODEL`.
+ *  - fallback: `openrouter/free`, the auto-router that self-selects a free model
+ *    supporting structured output — resilient to the primary being deprecated.
  */
-export function getGeminiModel(): string {
-  return process.env.GEMINI_MODEL?.trim() || "gemini-flash-lite-latest";
+export function getOpenRouterModels(): string[] {
+  const primary = process.env.OPENROUTER_MODEL?.trim() || "nvidia/nemotron-3-super-120b-a12b:free";
+  return [...new Set([primary, "openrouter/free"])];
+}
+
+/**
+ * Optional hard override of which provider to use ("openrouter" | "mock").
+ * When unset, selection auto-detects (OpenRouter if a key is set, else Mock).
+ */
+export function getProviderOverride(): string | undefined {
+  return process.env.AI_PROVIDER?.trim().toLowerCase() || undefined;
+}
+
+/** Whether the disk (L2) cache is enabled. Default on; set AI_DISK_CACHE=0 to disable. */
+export function isDiskCacheEnabled(): boolean {
+  return process.env.AI_DISK_CACHE?.trim() !== "0";
 }

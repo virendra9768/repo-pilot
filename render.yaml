@@ -1,0 +1,22 @@
+# Render Blueprint — deploy RepoPilot as a long-running Node web service.
+# (Long-running host is required: cloning arbitrary repos needs a git binary +
+#  writable disk, which serverless platforms don't provide.)
+services:
+  - type: web
+    name: repopilot
+    runtime: node
+    plan: free
+    # --include=dev ensures build-only deps (typescript, tailwind, postcss) are
+    # installed even if the host sets NODE_ENV=production during the build.
+    buildCommand: npm install --include=dev && npm run build
+    startCommand: npm start
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false # set this in the Render dashboard (do not commit the key)
+      - key: NODE_VERSION
+        value: "22"
+      # Optional:
+      # - key: OPENROUTER_MODEL   # override the default fast free model
+      #   sync: false
+      # - key: AI_PROVIDER        # openrouter | mock
+      #   sync: false

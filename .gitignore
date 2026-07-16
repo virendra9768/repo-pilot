@@ -42,3 +42,6 @@ next-env.d.ts
 
 # repopilot analysis cache
 /.cache
+
+# local dev server log
+/dev.log

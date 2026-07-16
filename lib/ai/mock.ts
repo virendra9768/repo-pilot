@@ -2,7 +2,7 @@ import { z } from "zod";
 import type { AIProvider, GenerateJSONArgs } from "./types";
 
 /**
- * Offline/dev provider used only when no GEMINI_API_KEY is set. Synthesizes a
+ * Offline/dev provider used only when no provider API key is set. Synthesizes a
  * schema-valid placeholder so the UI renders without a key. Never used once a
  * key is configured.
  */

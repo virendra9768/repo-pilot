@@ -1,20 +1,27 @@
 import type { AIProvider } from "./types";
-import { GeminiProvider } from "./gemini";
+import { OpenRouterProvider } from "./openrouter";
 import { MockProvider } from "./mock";
 import { withCache } from "./cache";
-import { hasGeminiKey } from "./config";
+import { hasOpenRouterKey, getProviderOverride } from "./config";
 
 let provider: AIProvider | undefined;
 
+function selectBase(): AIProvider {
+  const override = getProviderOverride();
+  if (override === "openrouter") return new OpenRouterProvider();
+  if (override === "mock") return new MockProvider();
+
+  // Auto-detect: OpenRouter if a key is configured, else the keyless Mock.
+  return hasOpenRouterKey() ? new OpenRouterProvider() : new MockProvider();
+}
+
 /**
- * Cached, singleton AI provider: live Gemini when a key is configured,
- * otherwise the mock provider for local dev. Wrapped with a response cache.
- * (Restart the server after adding a key — the singleton is built once.)
+ * Cached, singleton AI provider wrapped with a memory + disk response cache.
+ * Selection: AI_PROVIDER override, else OpenRouter key, else Mock.
+ * (Restart the server after changing keys — the singleton is built once.)
  */
 export function getProvider(): AIProvider {
-  if (!provider) {
-    provider = withCache(hasGeminiKey() ? new GeminiProvider() : new MockProvider());
-  }
+  if (!provider) provider = withCache(selectBase());
   return provider;
 }
 

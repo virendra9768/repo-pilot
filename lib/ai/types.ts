@@ -5,7 +5,7 @@ export interface GenerateJSONArgs<T> {
   system?: string;
   /** The user prompt. */
   prompt: string;
-  /** Zod schema — used both for Gemini's responseSchema and for validation. */
+  /** Zod schema — used both to steer the provider's JSON output and to validate it. */
   schema: ZodType<T>;
   /** Optional stable cache key; falls back to a hash of the prompt. */
   cacheKey?: string;
