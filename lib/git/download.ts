@@ -1,0 +1,58 @@
+import { Readable } from "node:stream";
+import { pipeline } from "node:stream/promises";
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { extract } from "tar";
+
+/**
+ * Fetch a public GitHub repo as a tarball and extract it to a temp dir — pure
+ * HTTP, no `git` binary required (so it works on serverless too). Equivalent to
+ * the previous shallow clone: default branch, no history.
+ *
+ * Uses the GitHub API tarball endpoint (302-redirects to codeload, which fetch
+ * follows). `GITHUB_TOKEN` is optional and only raises the rate limit.
+ */
+export async function downloadRepoTarball(
+  owner: string,
+  repo: string,
+  opts: { timeoutMs?: number } = {},
+): Promise<string> {
+  const timeoutMs = opts.timeoutMs ?? 60_000;
+  const dir = await mkdtemp(join(tmpdir(), "repopilot-"));
+
+  const headers: Record<string, string> = { "User-Agent": "RepoPilot" };
+  const token = process.env.GITHUB_TOKEN;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const url = `https://api.github.com/repos/${owner}/${repo}/tarball`;
+    const res = await fetch(url, { headers, redirect: "follow", signal: controller.signal });
+    if (!res.ok || !res.body) {
+      throw new Error(`GitHub tarball ${res.status} ${res.statusText || ""}`.trim());
+    }
+    // Extract straight from the response stream. tar auto-detects gzip; strip:1
+    // removes the top-level "<owner>-<repo>-<sha>/" wrapper so files land in `dir`.
+    await pipeline(
+      Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
+      extract({ cwd: dir, strip: 1 }),
+    );
+    return dir;
+  } catch (err) {
+    await removeDir(dir);
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+/** Best-effort recursive delete; never throws. Retries transient locks. */
+export async function removeDir(dir: string): Promise<void> {
+  try {
+    await rm(dir, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
+  } catch {
+    /* ignore cleanup errors */
+  }
+}

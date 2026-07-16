@@ -4,6 +4,7 @@ import { listDemos } from "@/engine/clone";
 // The engine clones to disk and reads the filesystem — must run on Node.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

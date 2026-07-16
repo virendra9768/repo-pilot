@@ -2,7 +2,7 @@ import { join } from "node:path";
 import { access } from "node:fs/promises";
 import type { WorkspaceInfo } from "@/types/analysis";
 import { validateGitHubUrl } from "@/lib/git/validate";
-import { shallowClone, removeDir } from "@/lib/git/clone";
+import { downloadRepoTarball, removeDir } from "@/lib/git/download";
 
 /** Bundled demo repositories (see demo-repos/SOURCES.md). */
 export const DEMOS = {
@@ -50,16 +50,17 @@ export function resolveDemoKey(input: string): DemoKey | undefined {
   return DEMO_ALIASES[input?.trim().toLowerCase()];
 }
 
-/** Turn a noisy git clone error into a short human hint. */
+/** Turn a noisy fetch error into a short human hint. */
 function cloneErrorHint(err: unknown): string {
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
-  if (/not found|repository not found|could not read|404/.test(msg)) {
+  if (/not found|could not read|404/.test(msg)) {
     return "repository not found or is private";
   }
-  if (/timeout|timed out/.test(msg)) return "clone timed out";
-  if (/could not resolve host|network|getaddrinfo/.test(msg)) return "network error";
-  if (/authentication|permission|access denied|403/.test(msg)) return "access denied";
-  return "clone failed";
+  if (/timeout|timed out|abort/.test(msg)) return "fetch timed out";
+  if (/rate limit|429/.test(msg)) return "GitHub rate limit — try again later";
+  if (/could not resolve host|network|getaddrinfo|fetch failed/.test(msg)) return "network error";
+  if (/authentication|permission|access denied|403/.test(msg)) return "access denied / rate limit";
+  return "fetch failed";
 }
 
 function demoDir(key: DemoKey): string {
@@ -108,7 +109,7 @@ export async function acquireWorkspace(
   }
 
   try {
-    const dir = await shallowClone(validation.repo.cloneUrl);
+    const dir = await downloadRepoTarball(validation.repo.owner, validation.repo.repo);
     return {
       workspace: {
         root: dir,
@@ -121,7 +122,7 @@ export async function acquireWorkspace(
   } catch (err) {
     return demoWorkspace(
       DEFAULT_DEMO,
-      `Couldn't clone ${validation.repo.slug} (${cloneErrorHint(err)}) — analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`,
+      `Couldn't fetch ${validation.repo.slug} (${cloneErrorHint(err)}) — analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`,
     );
   }
 }

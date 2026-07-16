@@ -5,6 +5,7 @@ import { buildOnboardingPrompt, onboardingSchema } from "@/engine/prompts/onboar
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+export const maxDuration = 60;
 
 export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");

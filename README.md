@@ -3,7 +3,7 @@
 **Turn any GitHub repository into a guided, AI-powered onboarding experience —
 grounded in a real analysis of the code, so it explains instead of hallucinating.**
 
-Paste a repo (or pick a bundled demo) and RepoPilot clones it, runs a deterministic
+Paste a repo (or pick a bundled demo) and RepoPilot fetches it, runs a deterministic
 static analysis, and generates an onboarding dashboard: an overview, a learning path, a
 day-by-day journey, an interactive execution-flow map, a "talk to the engineer who built
 it" chat, and a change-impact GPS.
@@ -17,7 +17,7 @@ GitHub URL / demo
       │
       ▼
  Repository Import  ──►  Deterministic Engine  ──►  Understanding Map (locked schema)
- (simple-git clone,      (routes · models ·         entryPoints · criticalFiles ·
+ (tarball download,      (routes · models ·         entryPoints · criticalFiles ·
   ignore list, temp,      imports · graph —          technologies · routes · models ·
   demo fallback)          regex/heuristic, no AST)   learningOrder · graph{nodes,edges}
                                                               │
@@ -45,8 +45,8 @@ every file path it returns is validated against the real inventory.
 
 ## Stack
 Next.js 16 · TypeScript · Tailwind v4 · Framer Motion · React Flow (`@xyflow/react`) ·
-`simple-git` · OpenRouter (OpenAI-compatible, structured JSON output) behind a swappable
-provider abstraction · `zod` for response validation.
+GitHub tarball download (`tar`, no git binary) · OpenRouter (OpenAI-compatible, structured
+JSON output) behind a swappable provider abstraction · `zod` for response validation.
 
 ## Getting started
 ```bash
@@ -79,17 +79,17 @@ Two real OSS repos are vendored under `demo-repos/` (source-only, pinned — see
 - `next-prisma-starter` — Next.js App Router + Prisma + Tailwind
 - `nest-starter` — NestJS
 
-Pasting a real GitHub URL clones and analyzes it live; if the clone fails, RepoPilot falls
+Pasting a real GitHub URL fetches and analyzes it live; if the fetch fails, RepoPilot falls
 back to a demo repo with a clear notice. See **`docs/DEMO.md`** for the rehearsed demo
 script and **`docs/PITCH.md`** for the pitch.
 
 ## Deploy
-Deploy to a **long-running host** — a `git` binary + writable disk are required for cloning
-arbitrary repos, so **serverless (Vercel) won't work** for the live-clone feature.
-Recommended: an **Oracle Cloud "Always Free" VM** (free forever, never sleeps) running the
-included **`Dockerfile`**. PaaS alternatives (Render Blueprint / Railway / Fly.io) also work.
+Repos are fetched over plain HTTP (GitHub tarball — no `git` binary), so RepoPilot runs
+anywhere including **serverless**. Recommended: **Vercel** (one-click from GitHub, free,
+instant, auto-HTTPS) — `next.config.ts` already traces `demo-repos/`+`cache-seed/` and the
+API routes set `maxDuration`. Long-running hosts (Render / Railway / Docker) also work.
 Warmed demo answers ship in `cache-seed/ai/`, so the deployed demo is instant on the first
-request. Full steps + env vars + the Oracle firewall gotcha: **`docs/DEPLOY.md`**.
+request. Full steps + env vars: **`docs/DEPLOY.md`**.
 
 ## Project structure
 ```
@@ -106,8 +106,8 @@ demo-repos/               vendored fallback repositories
 - Route/dependency/model detection is **regex/path-heuristic**, not AST-based.
 - The intelligence graph is plain `Node[]/Edge[]` in memory — not a graph database.
 - No auth / private repos / semantic search. Business Flow Explorer is out of scope.
-- Local/demo-first: cloning needs a local `git` binary; a stateless serverless host would
-  require the demo path (bundled repos, no git).
+- Repos are fetched via GitHub's tarball API (public repos only) — no `git` binary, so it
+  deploys to serverless as well as long-running hosts.
 
 ## Debug
 `/debug` renders the raw Understanding Map JSON for any demo/URL (engine sanity check).

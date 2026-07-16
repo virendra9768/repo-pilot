@@ -1,6 +1,6 @@
-# RepoPilot container — for a long-running host (Oracle Always Free VM, etc.).
-# node:22 (Debian bookworm) includes the `git` binary that simple-git needs to
-# clone repos at runtime.
+# RepoPilot container — optional, for long-running hosts (Render / a VM / Fly.io).
+# Repo fetching uses the GitHub tarball API over HTTP, so no `git` binary is needed;
+# node:22 is just a standard Node runtime.
 FROM node:22
 
 WORKDIR /app

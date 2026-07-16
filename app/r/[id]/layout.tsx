@@ -14,6 +14,8 @@ import { Chip } from "@/components/ui/chip";
 import { techIcon } from "@/components/shared/icons";
 import { repoUrl } from "@/lib/utils/github";
 
+export const maxDuration = 60;
+
 export default async function RepoLayout({
   children,
   params,
