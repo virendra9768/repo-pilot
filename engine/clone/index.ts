@@ -110,6 +110,8 @@ export async function acquireWorkspace(
   }
 
   const { owner, repo, slug } = validation.repo;
+  const hadToken = Boolean(opts.token);
+  let triedToken = false;
   try {
     // Public-first: only use the user's token if the public fetch is denied,
     // which also tells us the repo is private (for per-account cache namespacing).
@@ -119,6 +121,7 @@ export async function acquireWorkspace(
       dir = await downloadRepoTarball(owner, repo);
     } catch (err) {
       if (!opts.token || !isAccessError(err)) throw err;
+      triedToken = true;
       dir = await downloadRepoTarball(owner, repo, { token: opts.token });
       isPrivate = true;
     }
@@ -127,11 +130,39 @@ export async function acquireWorkspace(
       cleanup: () => removeDir(dir),
     };
   } catch (err) {
-    return demoWorkspace(
-      DEFAULT_DEMO,
-      `Couldn't fetch ${slug} (${cloneErrorHint(err)}) — analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`,
-    );
+    return demoWorkspace(DEFAULT_DEMO, fallbackReason(slug, err, hadToken, triedToken));
   }
+}
+
+/**
+ * Human-readable reason for falling back to a demo. Distinguishes the two
+ * private-repo access cases so the failure is self-explaining:
+ *  - a token was tried but GitHub still denied it (wrong app type / not installed / scope);
+ *  - no token was available at all (the repo may be private — connect GitHub).
+ */
+function fallbackReason(
+  slug: string,
+  err: unknown,
+  hadToken: boolean,
+  triedToken: boolean,
+): string {
+  const demo = DEMOS[DEFAULT_DEMO].label;
+  if (isAccessError(err)) {
+    if (triedToken) {
+      return (
+        `Connected, but GitHub denied access to ${slug}. If you registered a GitHub App, ` +
+        `switch to an OAuth App (or install the app on this repo with Contents read access). ` +
+        `Analyzed the ${demo} demo instead.`
+      );
+    }
+    if (!hadToken) {
+      return (
+        `${slug} was not found or is private — connect GitHub at the top of the page to ` +
+        `analyze private repos. Analyzed the ${demo} demo instead.`
+      );
+    }
+  }
+  return `Couldn't fetch ${slug} (${cloneErrorHint(err)}) — analyzed the ${demo} demo instead.`;
 }
 
 function isAccessError(err: unknown): boolean {
