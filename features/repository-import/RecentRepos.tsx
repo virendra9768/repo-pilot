@@ -79,7 +79,7 @@ export function RecentRepos() {
                     <span className="text-[11px] text-faint">{timeAgo(r.at)}</span>
                   </div>
                 </div>
-                <ArrowUpRight className="h-4 w-4 shrink-0 text-faint transition-colors group-hover:text-accent-bright" />
+                <ArrowUpRight className="h-4 w-4 shrink-0 text-faint transition-opacity group-hover:opacity-0" />
               </div>
             </Link>
             <button
@@ -89,7 +89,7 @@ export function RecentRepos() {
                 setRecents((prev) => (prev ?? []).filter((x) => x.id !== r.id));
               }}
               aria-label="Remove"
-              className="absolute right-2 top-2 hidden h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-muted hover:text-foreground group-hover:flex"
+              className="absolute right-3 top-3 hidden h-6 w-6 items-center justify-center rounded-md text-faint transition-colors hover:bg-muted hover:text-foreground group-hover:flex"
             >
               <X className="h-3.5 w-3.5" />
             </button>

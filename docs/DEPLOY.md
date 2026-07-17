@@ -29,7 +29,8 @@ Already handled for serverless:
 - **No persistent writable cache:** `/tmp` is ephemeral, so live answers regenerate each
   time — but the committed seed keeps the scripted demo instant. (Optionally set
   `AI_CACHE_DIR=/tmp/repopilot` so a warm instance caches live answers too.)
-- Public repos only (no auth); private repos are out of scope.
+- Public repos work with no auth; optional GitHub login unlocks private repos (per-account
+  cache, token never stored — see "Optional: GitHub login for private repos" below).
 
 ---
 
