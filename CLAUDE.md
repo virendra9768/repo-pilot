@@ -21,7 +21,9 @@ public/
 ```
 
 ## Non-negotiable scope decisions — do not silently deviate
-- Route/dependency/DB-model detection is **regex/path-heuristic based**, not AST-based. No ts-morph/babel traversal. This is a deliberate time-budget call for a 3-day build — don't "upgrade" it without being asked.
+- Route/dependency/DB-model detection is **AST-based**, via `ts-morph` for TS/JS and `@mrleebo/prisma-ast` for `.prisma`. **Parse only** — never construct a Program or type checker (ts-morph builds them lazily, so this is a discipline, not a flag; see the banned-API list in `engine/analyzer/parse.ts`). Every code file is parsed once into a shared cache in `engine/analyze.ts` and the tree is handed to all three analyzers.
+- Detection that is **not** parsing stays as-is, deliberately: Next.js route URLs come from file paths (`deriveNextRoute`), module resolution from path logic (`resolveSpecifier`), technologies from the package.json dependency table, and metadata from JSON config. An AST has no input to those — don't "upgrade" them.
+- The parse budget in `lib/security/ignore.ts` (`MAX_PARSE_*`) is load-bearing for memory, not a nicety — the shared cache holds every tree at once. Don't remove it.
 - **Business Flow Explorer is out of scope.** Skip it even if referenced elsewhere.
 - No auth, GitHub OAuth, private-repo support, semantic search/vector DB, multi-repo workspace, or VS Code extension.
 - The intelligence graph is plain `Node[]/Edge[]` in memory — not a graph database.

@@ -33,8 +33,20 @@ const CACHE_DIR = join(process.cwd(), ".cache", "repopilot");
 const REPO_TTL_SECONDS = 60 * 60 * 24 * 7; // public: 7 days
 const PRIV_TTL_SECONDS = 60 * 60 * 24 * 2; // private: 2 days
 
-const pubKey = (id: string) => `repo:${id}`;
-const privKey = (userId: string, id: string) => `priv:${userId}:${id}`;
+/**
+ * Bump when the deterministic engine's output changes. Cached maps are returned
+ * before `analyzeRepository` ever runs, and nothing else expires the disk cache,
+ * so without this an engine improvement is invisible forever on any instance
+ * that has already analyzed a repo. Old entries are simply never read again.
+ *
+ * 2 — AST-based analyzers (ts-morph / prisma-ast) replaced the regex ones.
+ */
+const ENGINE_VERSION = 2;
+
+const pubKey = (id: string) => `repo:v${ENGINE_VERSION}:${id}`;
+const privKey = (userId: string, id: string) =>
+  `priv:v${ENGINE_VERSION}:${userId}:${id}`;
+const diskFile = (id: string) => `${id}.v${ENGINE_VERSION}.json`;
 
 /** Stable, filename-safe id for an import request. */
 export function computeId(input: AnalyzeInput): string {
@@ -141,7 +153,7 @@ export async function getOrAnalyze(
 
 async function readDisk(id: string): Promise<AnalyzedRepo | undefined> {
   try {
-    const raw = await readFile(join(CACHE_DIR, `${id}.json`), "utf8");
+    const raw = await readFile(join(CACHE_DIR, diskFile(id)), "utf8");
     return JSON.parse(raw) as AnalyzedRepo;
   } catch {
     return undefined;
@@ -151,7 +163,7 @@ async function readDisk(id: string): Promise<AnalyzedRepo | undefined> {
 async function writeDisk(repo: AnalyzedRepo): Promise<void> {
   try {
     await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(join(CACHE_DIR, `${repo.id}.json`), JSON.stringify(repo), "utf8");
+    await writeFile(join(CACHE_DIR, diskFile(repo.id)), JSON.stringify(repo), "utf8");
   } catch {
     /* best-effort cache; ignore write failures */
   }

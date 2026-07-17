@@ -9,7 +9,9 @@ interface TechRule {
 
 /**
  * Rule-based technology detection off package.json dependencies.
- * Deliberately dependency-driven (no file scanning) — see CLAUDE.md scope.
+ * Deliberately dependency-driven: no file scanning, and nothing for the AST
+ * layer to act on — a project's stack is declared in package.json, not inferred
+ * from its syntax. See CLAUDE.md scope.
  */
 const RULES: TechRule[] = [
   { deps: ["next"], name: "Next.js", category: "framework" },

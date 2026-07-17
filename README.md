@@ -19,7 +19,7 @@ GitHub URL / demo
  Repository Import  ──►  Deterministic Engine  ──►  Understanding Map (locked schema)
  (tarball download,      (routes · models ·         entryPoints · criticalFiles ·
   ignore list, temp,      imports · graph —          technologies · routes · models ·
-  demo fallback)          regex/heuristic, no AST)   learningOrder · graph{nodes,edges}
+  demo fallback)          AST, parse-only)           learningOrder · graph{nodes,edges}
                                                               │
                                                               ▼
                                         AI Layer (OpenRouter, structured JSON output)
@@ -106,7 +106,12 @@ demo-repos/               vendored fallback repositories
 ```
 
 ## Scope notes (deliberate, for a 3-day build)
-- Route/dependency/model detection is **regex/path-heuristic**, not AST-based.
+- Route/dependency/model detection is **AST-based** — `ts-morph` for TS/JS, `@mrleebo/prisma-ast`
+  for `.prisma`. Parse-only: no Program, no type checker. Files are parsed once into a shared
+  cache and the trees are shared across the analyzers.
+- Detection that isn't parsing stays path/config-driven on purpose: Next.js route URLs come from
+  file paths, module resolution from path logic, and technologies from the package.json
+  dependency table.
 - The intelligence graph is plain `Node[]/Edge[]` in memory — not a graph database.
 - No auth / private repos / semantic search. Business Flow Explorer is out of scope.
 - Repos are fetched via GitHub's tarball API (public repos only) — no `git` binary, so it

@@ -67,12 +67,17 @@ describe("inputFromId round-trips with computeId", () => {
 });
 
 describe("getOrAnalyze caching & isolation", () => {
-  it("caches a public repo under repo:<id> on KV + disk", async () => {
+  it("caches a public repo under repo:v<engine>:<id> on KV + disk", async () => {
     analyzeRepository.mockResolvedValue(result("clone", false));
     const repo = await getOrAnalyze({ kind: "url", url: "https://github.com/pub/one" });
 
     expect(repo.private).toBeFalsy();
-    expect(vi.mocked(kvSet)).toHaveBeenCalledWith("repo:gh__pub__one", expect.anything(), expect.anything());
+    // The version segment is what stops a pre-AST map being served forever.
+    expect(vi.mocked(kvSet)).toHaveBeenCalledWith(
+      expect.stringMatching(/^repo:v\d+:gh__pub__one$/),
+      expect.anything(),
+      expect.anything(),
+    );
     expect(vi.mocked(writeFile)).toHaveBeenCalled(); // disk write for public
   });
 
@@ -85,10 +90,14 @@ describe("getOrAnalyze caching & isolation", () => {
 
     expect(repo.private).toBe(true);
     expect(repo.ownerUserId).toBe("7");
-    expect(vi.mocked(kvSet)).toHaveBeenCalledWith("priv:7:gh__priv__two", expect.anything(), expect.anything());
+    expect(vi.mocked(kvSet)).toHaveBeenCalledWith(
+      expect.stringMatching(/^priv:v\d+:7:gh__priv__two$/),
+      expect.anything(),
+      expect.anything(),
+    );
     // Not under the shared public key, and never written to disk.
     const keys = vi.mocked(kvSet).mock.calls.map((c) => c[0]);
-    expect(keys).not.toContain("repo:gh__priv__two");
+    expect(keys.some((k) => /^repo:v\d+:gh__priv__two$/.test(k))).toBe(false);
     expect(vi.mocked(writeFile)).not.toHaveBeenCalled();
   });
 

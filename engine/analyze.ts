@@ -5,11 +5,16 @@ import { analyzeTechnologies } from "./analyzer/technology";
 import { analyzeRoutes } from "./analyzer/routes";
 import { analyzeDatabase } from "./analyzer/database";
 import { analyzeDependencies } from "./analyzer/dependencies";
+import { createParseCache } from "./analyzer/parse";
 import { buildGraph } from "./graph/build";
 import { generateUnderstandingMap } from "./context/understanding-map";
 import { buildContextPack } from "./context/context-pack";
-import type { UnderstandingMap } from "@/types/understanding-map";
-import type { RepoContextPack } from "@/types/analysis";
+import type {
+  UnderstandingMap,
+  ImportantRoute,
+  DatabaseModel,
+} from "@/types/understanding-map";
+import type { RepoContextPack, ImportLink } from "@/types/analysis";
 
 export type { AnalyzeInput } from "./clone";
 
@@ -42,10 +47,25 @@ export async function analyzeRepository(
     const { files, truncated } = await walkRepo(workspace.root);
     const { metadata, importAliases } = analyzeMetadata(files);
 
+    // Pure dependency-table lookup — no files touched, so keep it outside the
+    // parse window.
     const technologies = analyzeTechnologies(metadata.allDependencies);
-    const routes = analyzeRoutes(files, metadata.allDependencies);
-    const models = analyzeDatabase(files);
-    const importLinks = analyzeDependencies(files, importAliases);
+
+    // Parse every code file once and share the trees; these three analyzers
+    // used to re-scan the same text independently.
+    const parsed = createParseCache(files);
+    let routes: ImportantRoute[];
+    let models: DatabaseModel[];
+    let importLinks: ImportLink[];
+    try {
+      routes = analyzeRoutes(files, metadata.allDependencies, parsed);
+      models = analyzeDatabase(files, parsed);
+      importLinks = analyzeDependencies(files, importAliases, parsed);
+    } finally {
+      // An analyzer throwing must not leak every tree for the rest of the request.
+      parsed.dispose();
+    }
+
     const graph = buildGraph({ files, importLinks, routes, models });
 
     const understandingMap = generateUnderstandingMap({

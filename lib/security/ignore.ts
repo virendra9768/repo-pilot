@@ -51,6 +51,22 @@ export const MAX_TEXT_FILE_BYTES = 512 * 1024; // 512 KB
  */
 export const MAX_WALK_FILES = 5000;
 
+/**
+ * Parse budget for the AST layer. These bound heap, not just time: the walk
+ * admits up to MAX_WALK_FILES * MAX_TEXT_FILE_BYTES (~2.5 GB) of source, and a
+ * TypeScript AST runs ~10-20x its source size. The parse cache holds every tree
+ * at once, so without a ceiling a pathological repo would ask for tens of GB.
+ *
+ * MAX_PARSE_TOTAL_BYTES is the one that actually caps the heap (~8 MB source ->
+ * ~80-160 MB of AST, always). The other two are cheap early-outs; the per-file
+ * cap also keeps checked-in minified bundles — worst AST-per-byte, least
+ * informative — out of the cache. Files are visited in sorted path order, so
+ * which ones get dropped is deterministic.
+ */
+export const MAX_PARSE_FILES = 2000;
+export const MAX_PARSE_FILE_BYTES = 256 * 1024; // 256 KB
+export const MAX_PARSE_TOTAL_BYTES = 8 * 1024 * 1024; // 8 MB
+
 export function isIgnoredDir(name: string): boolean {
   return IGNORED_DIRS.has(name);
 }
