@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowUpRight, Boxes, History, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { timeAgo } from "@/lib/utils/time";
 import {
   readLocalRecents,
   removeLocalRecent,
@@ -98,15 +99,4 @@ export function RecentRepos() {
       </div>
     </motion.section>
   );
-}
-
-function timeAgo(ts: number): string {
-  const s = Math.max(1, Math.floor((Date.now() - ts) / 1000));
-  if (s < 60) return "just now";
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ago`;
-  const h = Math.floor(m / 60);
-  if (h < 24) return `${h}h ago`;
-  const d = Math.floor(h / 24);
-  return `${d}d ago`;
 }

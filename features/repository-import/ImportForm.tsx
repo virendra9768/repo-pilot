@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import { ArrowRight, CircleAlert, GitBranch, Lock, LogOut, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ANALYSIS_STAGES, AnalysisProgress } from "./AnalysisProgress";
+import { GithubRepoPicker } from "./GithubRepoPicker";
 import { pushLocalRecent } from "./recents";
 
 interface AuthState {
@@ -173,6 +174,10 @@ export function ImportForm() {
                 </Button>
               </div>
             </div>
+
+            {auth?.connected && (
+              <GithubRepoPicker onSelect={(r) => importRepo({ url: r.url }, r.fullName)} />
+            )}
 
             <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
               <span className="text-xs text-faint">or explore a demo</span>
