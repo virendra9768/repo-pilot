@@ -9,6 +9,9 @@ export interface GenerateJSONArgs<T> {
   schema: ZodType<T>;
   /** Optional stable cache key; falls back to a hash of the prompt. */
   cacheKey?: string;
+  /** Namespace prefix for the persistent cache key (e.g. "priv:<userId>" for
+   *  private repos, so their cached answers are scoped and never shared). */
+  namespace?: string;
 }
 
 export interface AIProvider {

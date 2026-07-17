@@ -94,6 +94,7 @@ async function demoWorkspace(
  */
 export async function acquireWorkspace(
   input: AnalyzeInput,
+  opts: { token?: string } = {},
 ): Promise<AcquiredWorkspace> {
   if (input.kind === "demo") {
     const key = resolveDemoKey(input.demo) ?? DEFAULT_DEMO;
@@ -108,21 +109,32 @@ export async function acquireWorkspace(
     );
   }
 
+  const { owner, repo, slug } = validation.repo;
   try {
-    const dir = await downloadRepoTarball(validation.repo.owner, validation.repo.repo);
+    // Public-first: only use the user's token if the public fetch is denied,
+    // which also tells us the repo is private (for per-account cache namespacing).
+    let dir: string;
+    let isPrivate = false;
+    try {
+      dir = await downloadRepoTarball(owner, repo);
+    } catch (err) {
+      if (!opts.token || !isAccessError(err)) throw err;
+      dir = await downloadRepoTarball(owner, repo, { token: opts.token });
+      isPrivate = true;
+    }
     return {
-      workspace: {
-        root: dir,
-        displayName: validation.repo.slug,
-        source: "clone",
-        isTemp: true,
-      },
+      workspace: { root: dir, displayName: slug, source: "clone", isTemp: true, private: isPrivate },
       cleanup: () => removeDir(dir),
     };
   } catch (err) {
     return demoWorkspace(
       DEFAULT_DEMO,
-      `Couldn't fetch ${validation.repo.slug} (${cloneErrorHint(err)}) — analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`,
+      `Couldn't fetch ${slug} (${cloneErrorHint(err)}) — analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`,
     );
   }
+}
+
+function isAccessError(err: unknown): boolean {
+  const m = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  return /\b(404|403)\b|not found|forbidden/.test(m);
 }

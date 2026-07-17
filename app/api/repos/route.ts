@@ -1,4 +1,4 @@
-import { getOrAnalyze } from "@/lib/persistence/store";
+import { analyzeForRequest } from "@/lib/auth/access";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const repo = await getOrAnalyze(
+    const repo = await analyzeForRequest(
       demo ? { kind: "demo", demo } : { kind: "url", url: url! },
     );
     return Response.json({

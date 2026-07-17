@@ -52,6 +52,23 @@ build `npm install --include=dev && npm run build`, start `npm start`.
 | `AI_PROVIDER` | no | auto | `openrouter` \| `mock` |
 | `AI_DISK_CACHE` | no | on | `0` disables the writable disk layer (seed still served) |
 | `AI_CACHE_DIR` | no | `.cache/ai` | writable cache path (e.g. `/tmp/repopilot` on serverless) |
+| `UPSTASH_REDIS_REST_URL` | no | — | durable cache + cross-device recents (see below) |
+| `UPSTASH_REDIS_REST_TOKEN` | no | — | pairs with the URL above |
+| `GITHUB_OAUTH_CLIENT_ID` | no | — | GitHub login → private repos (see below) |
+| `GITHUB_OAUTH_CLIENT_SECRET` | no | — | pairs with the client id |
+| `SESSION_SECRET` | no | — | long random string; encrypts the session cookie |
+
+### Optional: durable cache (Upstash Redis)
+Without it, caching is in-memory + disk (ephemeral on serverless). Add a free **Upstash
+Redis** DB (on Vercel: *Storage → Upstash* auto-sets the two env vars) so analysis + all
+AI answers persist across sessions/instances — a re-analyzed repo never re-calls the LLM.
+
+### Optional: GitHub login for private repos
+1. GitHub → *Settings → Developer settings → OAuth Apps → New*. Authorization callback URL:
+   `https://<your-origin>/api/auth/github/callback`.
+2. Set `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`, and a random `SESSION_SECRET`.
+The GitHub token is **never stored** (only an encrypted httpOnly cookie). Private-repo
+analyses are cached **per account** (namespaced by GitHub user id) and never shared.
 
 ## After deploying — verify
 1. Open the URL → click a demo (**Next.js + Prisma** / **NestJS**) → dashboard loads.

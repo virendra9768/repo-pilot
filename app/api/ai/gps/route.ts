@@ -1,4 +1,4 @@
-import { getRepoOrRehydrate } from "@/lib/persistence/store";
+import { loadRepoForRequest, nsCacheKey } from "@/lib/auth/access";
 import { getProvider } from "@/lib/ai";
 import { gpsContext, knownFilePaths } from "@/engine/context/slices";
 import { buildGpsPrompt, gpsSchema } from "@/engine/prompts/gps";
@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Provide 'id' and 'task'" }, { status: 400 });
   }
 
-  const repo = await getRepoOrRehydrate(id);
+  const { repo, namespace } = await loadRepoForRequest(id);
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {
@@ -29,7 +29,8 @@ export async function POST(request: Request) {
       system,
       prompt,
       schema: gpsSchema,
-      cacheKey: `gps:${id}:${task.trim()}`,
+      cacheKey: nsCacheKey(namespace, `gps:${id}:${task.trim()}`),
+      namespace,
     });
     const known = knownFilePaths(repo);
     const unknownFiles = [...new Set(gps.files.map((f) => f.path).filter((p) => !known.has(p)))];

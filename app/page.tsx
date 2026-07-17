@@ -1,5 +1,6 @@
 import { Compass, LayoutDashboard, ListOrdered, Workflow } from "lucide-react";
 import { ImportForm } from "@/features/repository-import/ImportForm";
+import { RecentRepos } from "@/features/repository-import/RecentRepos";
 
 const FEATURES = [
   {
@@ -67,6 +68,10 @@ export default function Home() {
           <ImportForm />
         </div>
       </section>
+
+      <div className="relative z-10 flex w-full flex-col items-center">
+        <RecentRepos />
+      </div>
 
       <section
         className="relative z-10 mt-24 grid w-full max-w-4xl gap-4 pb-24 sm:grid-cols-3"

@@ -1,4 +1,4 @@
-import { getRepoOrRehydrate } from "@/lib/persistence/store";
+import { loadRepoForRequest, nsCacheKey } from "@/lib/auth/access";
 import { getProvider } from "@/lib/ai";
 import { onboardingContext } from "@/engine/context/slices";
 import { buildOnboardingPrompt, onboardingSchema } from "@/engine/prompts/onboarding";
@@ -11,7 +11,7 @@ export async function GET(request: Request) {
   const id = new URL(request.url).searchParams.get("id");
   if (!id) return Response.json({ error: "Missing id" }, { status: 400 });
 
-  const repo = await getRepoOrRehydrate(id);
+  const { repo, namespace } = await loadRepoForRequest(id);
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {
@@ -20,7 +20,8 @@ export async function GET(request: Request) {
       system,
       prompt,
       schema: onboardingSchema,
-      cacheKey: `onboarding:${id}`,
+      cacheKey: nsCacheKey(namespace, `onboarding:${id}`),
+      namespace,
     });
     return Response.json({ onboarding });
   } catch (err) {

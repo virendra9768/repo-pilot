@@ -52,17 +52,20 @@ JSON output) behind a swappable provider abstraction · `zod` for response valid
 ```bash
 npm install
 
-# .env.local
+# .env.local  (see .env.example for all options)
 OPENROUTER_API_KEY=your_key_here     # free tier — get one at openrouter.ai
-# optional overrides:
-#   OPENROUTER_MODEL=openrouter/free  # default: free auto-router (JSON-capable)
-#   AI_PROVIDER=openrouter|mock       # force a provider
-#   AI_DISK_CACHE=0                   # disable disk cache (e.g. on serverless)
+
+# optional integrations (all degrade gracefully if unset):
+#   UPSTASH_REDIS_REST_URL / _TOKEN   # durable cache + cross-device recents
+#   GITHUB_OAUTH_CLIENT_ID / _SECRET / SESSION_SECRET   # login → private repos
 
 npm run dev   # http://localhost:3000
 ```
 The AI layer is behind a **swappable provider abstraction** (`lib/ai/`). Selection is
 auto: OpenRouter key → Mock (placeholder answers so the UI still renders keyless).
+Caching is layered (memory → Upstash → disk → committed seed); **recently analyzed repos**
+show on the home screen; and **optional GitHub login** unlocks private repos (token never
+stored; cached per account). See `docs/DEPLOY.md`.
 
 ### Offline / rate-limit-proof demos
 AI responses are cached to disk (`.cache/ai/`, content-addressed and re-validated against

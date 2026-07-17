@@ -1,11 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
-import { ArrowRight, CircleAlert, GitBranch, Sparkles } from "lucide-react";
+import { ArrowRight, CircleAlert, GitBranch, Lock, LogOut, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ANALYSIS_STAGES, AnalysisProgress } from "./AnalysisProgress";
+import { pushLocalRecent } from "./recents";
+
+interface AuthState {
+  configured: boolean;
+  connected: boolean;
+  login: string | null;
+}
 
 const DEMOS = [
   { key: "next-prisma-starter", label: "Next.js + Prisma" },
@@ -20,7 +27,28 @@ export function ImportForm() {
   const [target, setTarget] = useState("");
   const [stageIndex, setStageIndex] = useState(0);
   const [done, setDone] = useState(false);
+  const [auth, setAuth] = useState<AuthState | null>(null);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/auth/me");
+        setAuth(await res.json());
+      } catch {
+        /* ignore */
+      }
+    })();
+  }, []);
+
+  async function disconnect() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST" });
+      setAuth((a) => (a ? { ...a, connected: false, login: null } : a));
+    } catch {
+      /* ignore */
+    }
+  }
 
   function startStageTicker() {
     setStageIndex(0);
@@ -49,6 +77,18 @@ export function ImportForm() {
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Import failed");
+      const recent = {
+        id: data.id,
+        name: data.workspace?.displayName ?? label,
+        source: data.workspace?.source ?? "clone",
+      };
+      pushLocalRecent(recent);
+      // Sync to the account list too (no-op server-side if not logged in).
+      void fetch("/api/recents", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(recent),
+      }).catch(() => {});
       // Keep the staged animation visible for a beat even on fast responses.
       const wait = Math.max(0, 1100 - (Date.now() - started));
       setTimeout(() => {
@@ -79,6 +119,30 @@ export function ImportForm() {
             transition={{ duration: 0.3 }}
             className="w-full max-w-xl"
           >
+            {auth?.configured && (
+              <div className="mb-2 flex items-center justify-end gap-2 text-xs">
+                {auth.connected ? (
+                  <>
+                    <span className="text-muted-foreground">
+                      Connected as <span className="text-foreground">{auth.login}</span>
+                    </span>
+                    <button
+                      onClick={disconnect}
+                      className="inline-flex items-center gap-1 rounded-md px-1.5 py-1 text-faint transition-colors hover:text-foreground"
+                    >
+                      <LogOut className="h-3 w-3" /> Disconnect
+                    </button>
+                  </>
+                ) : (
+                  <a
+                    href="/api/auth/github"
+                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-card px-2.5 py-1 font-medium text-muted-foreground transition-colors hover:border-border-strong hover:text-foreground"
+                  >
+                    <Lock className="h-3 w-3" /> Connect GitHub for private repos
+                  </a>
+                )}
+              </div>
+            )}
             <div className="group relative">
               <div className="absolute -inset-px rounded-2xl bg-linear-to-r from-accent-2/40 to-accent/40 opacity-0 blur transition-opacity duration-300 group-focus-within:opacity-100" />
               <div className="relative flex flex-col gap-2 rounded-2xl border border-border bg-card p-2 sm:flex-row sm:items-center">

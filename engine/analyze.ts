@@ -19,6 +19,7 @@ export interface AnalysisResult {
     source: "clone" | "demo";
     fallbackReason?: string;
     fileCount: number;
+    private?: boolean;
   };
   understandingMap: UnderstandingMap;
   /** Extra detail captured before workspace cleanup (server-side use). */
@@ -30,8 +31,11 @@ export interface AnalysisResult {
  * walk it, run every detector, build the graph, and assemble the Understanding
  * Map. The temp workspace is always cleaned up, even on error.
  */
-export async function analyzeRepository(input: AnalyzeInput): Promise<AnalysisResult> {
-  const { workspace, cleanup } = await acquireWorkspace(input);
+export async function analyzeRepository(
+  input: AnalyzeInput,
+  opts: { token?: string } = {},
+): Promise<AnalysisResult> {
+  const { workspace, cleanup } = await acquireWorkspace(input, { token: opts.token });
   try {
     const files = await walkRepo(workspace.root);
     const { metadata, importAliases } = analyzeMetadata(files);
@@ -61,6 +65,7 @@ export async function analyzeRepository(input: AnalyzeInput): Promise<AnalysisRe
         source: workspace.source,
         fallbackReason: workspace.fallbackReason,
         fileCount: files.length,
+        private: workspace.private,
       },
       understandingMap,
       contextPack,

@@ -16,13 +16,14 @@ import { extract } from "tar";
 export async function downloadRepoTarball(
   owner: string,
   repo: string,
-  opts: { timeoutMs?: number } = {},
+  opts: { timeoutMs?: number; token?: string } = {},
 ): Promise<string> {
   const timeoutMs = opts.timeoutMs ?? 60_000;
   const dir = await mkdtemp(join(tmpdir(), "repopilot-"));
 
   const headers: Record<string, string> = { "User-Agent": "RepoPilot" };
-  const token = process.env.GITHUB_TOKEN;
+  // Per-call token (for private repos) overrides the optional env token.
+  const token = opts.token ?? process.env.GITHUB_TOKEN;
   if (token) headers.Authorization = `Bearer ${token}`;
 
   const controller = new AbortController();

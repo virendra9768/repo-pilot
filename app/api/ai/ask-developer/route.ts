@@ -1,4 +1,4 @@
-import { getRepoOrRehydrate } from "@/lib/persistence/store";
+import { loadRepoForRequest } from "@/lib/auth/access";
 import { getProvider } from "@/lib/ai";
 import { askDeveloperContext, knownFilePaths } from "@/engine/context/slices";
 import {
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Provide 'id' and 'question'" }, { status: 400 });
   }
 
-  const repo = await getRepoOrRehydrate(id);
+  const { repo, namespace } = await loadRepoForRequest(id);
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {
@@ -37,6 +37,7 @@ export async function POST(request: Request) {
       system,
       prompt,
       schema: askDeveloperSchema,
+      namespace,
     });
     // Keep only references that are real files.
     const known = knownFilePaths(repo);

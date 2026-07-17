@@ -8,7 +8,7 @@ import {
   Plus,
   TriangleAlert,
 } from "lucide-react";
-import { getRepoOrRehydrate } from "@/lib/persistence/store";
+import { loadRepoForRequest } from "@/lib/auth/access";
 import { DashboardNav } from "@/components/layout/DashboardNav";
 import { Chip } from "@/components/ui/chip";
 import { techIcon } from "@/components/shared/icons";
@@ -24,7 +24,7 @@ export default async function RepoLayout({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const repo = await getRepoOrRehydrate(id);
+  const { repo } = await loadRepoForRequest(id);
 
   if (!repo) {
     return (

@@ -1,4 +1,4 @@
-import { getRepoOrRehydrate } from "@/lib/persistence/store";
+import { loadRepoForRequest, nsCacheKey } from "@/lib/auth/access";
 import { getProvider } from "@/lib/ai";
 import { executionFlowContext, knownFilePaths } from "@/engine/context/slices";
 import {
@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     return Response.json({ error: "Provide 'id' and 'question'" }, { status: 400 });
   }
 
-  const repo = await getRepoOrRehydrate(id);
+  const { repo, namespace } = await loadRepoForRequest(id);
   if (!repo) return Response.json({ error: "Repository not analyzed" }, { status: 404 });
 
   try {
@@ -33,7 +33,8 @@ export async function POST(request: Request) {
       system,
       prompt,
       schema: executionFlowSchema,
-      cacheKey: `flow:${id}:${question.trim()}`,
+      cacheKey: nsCacheKey(namespace, `flow:${id}:${question.trim()}`),
+      namespace,
     });
 
     // Flag any AI-referenced files that aren't real paths (grounding check).

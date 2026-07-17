@@ -89,4 +89,6 @@ export interface WorkspaceInfo {
   fallbackReason?: string;
   /** True when `root` is a temp dir the engine must clean up. */
   isTemp: boolean;
+  /** True when the repo was fetched with a user token (private). */
+  private?: boolean;
 }
