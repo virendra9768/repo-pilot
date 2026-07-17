@@ -49,6 +49,52 @@ export async function downloadRepoTarball(
   }
 }
 
+/** GitHub's reported repo size ceiling (in KB). Larger repos are rejected up
+ *  front so we never spend the request budget downloading + walking them. */
+export const MAX_REPO_SIZE_KB = 150 * 1024; // ~150 MB
+
+export interface RepoMeta {
+  /** Repository size in KB, as reported by GitHub. */
+  sizeKb: number;
+  private: boolean;
+}
+
+/**
+ * Fetch lightweight repo metadata (`GET /repos/{owner}/{repo}`) so we can reject
+ * oversized repos before downloading the tarball. Best-effort: returns null on
+ * any error (e.g. a private repo with no/insufficient token), in which case the
+ * caller proceeds with the normal download flow.
+ */
+export async function fetchRepoMeta(
+  owner: string,
+  repo: string,
+  opts: { token?: string; timeoutMs?: number } = {},
+): Promise<RepoMeta | null> {
+  const headers: Record<string, string> = {
+    "User-Agent": "RepoPilot",
+    Accept: "application/vnd.github+json",
+  };
+  const token = opts.token ?? process.env.GITHUB_TOKEN;
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), opts.timeoutMs ?? 15_000);
+  try {
+    const res = await fetch(`https://api.github.com/repos/${owner}/${repo}`, {
+      headers,
+      signal: controller.signal,
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as { size?: number; private?: boolean };
+    if (typeof json.size !== "number") return null;
+    return { sizeKb: json.size, private: Boolean(json.private) };
+  } catch {
+    return null;
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Best-effort recursive delete; never throws. Retries transient locks. */
 export async function removeDir(dir: string): Promise<void> {
   try {

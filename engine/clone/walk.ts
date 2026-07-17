@@ -6,21 +6,39 @@ import {
   isIgnoredDir,
   isBinaryExtension,
   MAX_TEXT_FILE_BYTES,
+  MAX_WALK_FILES,
 } from "@/lib/security/ignore";
 
-/**
- * Recursively walk a repository root, honoring the ignore list.
- * Returns a flat `RepoFile[]`; file content is read lazily and cached.
- */
-export async function walkRepo(root: string): Promise<RepoFile[]> {
-  const out: RepoFile[] = [];
-  await walkDir(root, root, out);
-  // Deterministic ordering makes downstream output stable.
-  out.sort((a, b) => a.relPath.localeCompare(b.relPath));
-  return out;
+export interface WalkResult {
+  files: RepoFile[];
+  /** True when the file cap was hit and only the first N files were collected. */
+  truncated: boolean;
 }
 
-async function walkDir(dir: string, root: string, out: RepoFile[]): Promise<void> {
+/**
+ * Recursively walk a repository root, honoring the ignore list and a hard file
+ * cap (see {@link MAX_WALK_FILES}). Returns a flat `RepoFile[]`; file content is
+ * read lazily and cached. `truncated` signals the cap was reached.
+ */
+export async function walkRepo(
+  root: string,
+  opts: { maxFiles?: number } = {},
+): Promise<WalkResult> {
+  const maxFiles = opts.maxFiles ?? MAX_WALK_FILES;
+  const out: RepoFile[] = [];
+  await walkDir(root, root, out, maxFiles);
+  // Deterministic ordering makes downstream output stable.
+  out.sort((a, b) => a.relPath.localeCompare(b.relPath));
+  return { files: out, truncated: out.length >= maxFiles };
+}
+
+async function walkDir(
+  dir: string,
+  root: string,
+  out: RepoFile[],
+  maxFiles: number,
+): Promise<void> {
+  if (out.length >= maxFiles) return; // cap reached — stop descending
   let entries;
   try {
     entries = await readdir(dir, { withFileTypes: true });
@@ -28,10 +46,11 @@ async function walkDir(dir: string, root: string, out: RepoFile[]): Promise<void
     return; // unreadable dir — skip
   }
   for (const entry of entries) {
+    if (out.length >= maxFiles) return;
     const abs = join(dir, entry.name);
     if (entry.isDirectory()) {
       if (isIgnoredDir(entry.name)) continue;
-      await walkDir(abs, root, out);
+      await walkDir(abs, root, out, maxFiles);
     } else if (entry.isFile()) {
       const relPath = relative(root, abs).split(sep).join("/");
       const ext = extname(entry.name).toLowerCase();

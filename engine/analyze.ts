@@ -20,6 +20,8 @@ export interface AnalysisResult {
     fallbackReason?: string;
     fileCount: number;
     private?: boolean;
+    /** True when the file cap was hit — analysis ran on the first N files only. */
+    truncated?: boolean;
   };
   understandingMap: UnderstandingMap;
   /** Extra detail captured before workspace cleanup (server-side use). */
@@ -37,7 +39,7 @@ export async function analyzeRepository(
 ): Promise<AnalysisResult> {
   const { workspace, cleanup } = await acquireWorkspace(input, { token: opts.token });
   try {
-    const files = await walkRepo(workspace.root);
+    const { files, truncated } = await walkRepo(workspace.root);
     const { metadata, importAliases } = analyzeMetadata(files);
 
     const technologies = analyzeTechnologies(metadata.allDependencies);
@@ -66,6 +68,7 @@ export async function analyzeRepository(
         fallbackReason: workspace.fallbackReason,
         fileCount: files.length,
         private: workspace.private,
+        truncated,
       },
       understandingMap,
       contextPack,

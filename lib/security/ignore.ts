@@ -44,6 +44,13 @@ export const BINARY_EXTENSIONS = new Set<string>([
 /** Files above this size are recorded but not read for content analysis. */
 export const MAX_TEXT_FILE_BYTES = 512 * 1024; // 512 KB
 
+/**
+ * Hard ceiling on how many files the walk collects. Bounds memory + analysis
+ * time for huge monorepos; normal repos fall well under it. When hit, analysis
+ * runs on the first N files and flags the result as truncated.
+ */
+export const MAX_WALK_FILES = 5000;
+
 export function isIgnoredDir(name: string): boolean {
   return IGNORED_DIRS.has(name);
 }

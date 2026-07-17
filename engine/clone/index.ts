@@ -2,7 +2,12 @@ import { join } from "node:path";
 import { access } from "node:fs/promises";
 import type { WorkspaceInfo } from "@/types/analysis";
 import { validateGitHubUrl } from "@/lib/git/validate";
-import { downloadRepoTarball, removeDir } from "@/lib/git/download";
+import {
+  downloadRepoTarball,
+  fetchRepoMeta,
+  removeDir,
+  MAX_REPO_SIZE_KB,
+} from "@/lib/git/download";
 
 /** Bundled demo repositories (see demo-repos/SOURCES.md). */
 export const DEMOS = {
@@ -110,6 +115,14 @@ export async function acquireWorkspace(
   }
 
   const { owner, repo, slug } = validation.repo;
+
+  // #1: reject oversized repos up front so we never burn the request budget
+  // downloading + walking them. Best-effort — only rejects on a known size.
+  const meta = await fetchRepoMeta(owner, repo, { token: opts.token });
+  if (meta && meta.sizeKb > MAX_REPO_SIZE_KB) {
+    return demoWorkspace(DEFAULT_DEMO, tooLargeReason(slug, meta.sizeKb));
+  }
+
   const hadToken = Boolean(opts.token);
   let triedToken = false;
   try {
@@ -163,6 +176,16 @@ export function fallbackReason(
     }
   }
   return `Couldn't fetch ${slug} (${cloneErrorHint(err)}) — analyzed the ${demo} demo instead.`;
+}
+
+/** Message shown when a repo exceeds the size limit and we skip analyzing it. */
+export function tooLargeReason(slug: string, sizeKb: number): string {
+  const sizeMb = Math.round(sizeKb / 1024);
+  const limitMb = Math.round(MAX_REPO_SIZE_KB / 1024);
+  return (
+    `${slug} is ~${sizeMb} MB, over the ${limitMb} MB limit for live analysis — ` +
+    `try a smaller repo. Analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`
+  );
 }
 
 export function isAccessError(err: unknown): boolean {
