@@ -140,7 +140,7 @@ export async function acquireWorkspace(
  *  - a token was tried but GitHub still denied it (wrong app type / not installed / scope);
  *  - no token was available at all (the repo may be private — connect GitHub).
  */
-function fallbackReason(
+export function fallbackReason(
   slug: string,
   err: unknown,
   hadToken: boolean,
@@ -165,7 +165,7 @@ function fallbackReason(
   return `Couldn't fetch ${slug} (${cloneErrorHint(err)}) — analyzed the ${demo} demo instead.`;
 }
 
-function isAccessError(err: unknown): boolean {
+export function isAccessError(err: unknown): boolean {
   const m = (err instanceof Error ? err.message : String(err)).toLowerCase();
   return /\b(404|403)\b|not found|forbidden/.test(m);
 }

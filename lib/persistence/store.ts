@@ -76,7 +76,7 @@ async function readCachedRepo(id: string, session?: SessionCtx): Promise<Analyze
 }
 
 /** Reconstruct the analyze input from an id (for cache-miss re-hydration). */
-function inputFromId(id: string): AnalyzeInput | null {
+export function inputFromId(id: string): AnalyzeInput | null {
   const demo = resolveDemoKey(id);
   if (demo) return { kind: "demo", demo };
   if (id.startsWith("gh__")) {
