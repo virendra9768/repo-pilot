@@ -6,6 +6,7 @@ import {
   MAX_KV_BLOB_BYTES,
   KV_SOFT_LIMIT,
   KV_MONTHLY_COMMAND_BUDGET,
+  isAnalyzableLanguage,
 } from "./limits";
 import { buildGraph } from "@/engine/graph/build";
 import { buildContextPack } from "@/engine/context/context-pack";
@@ -64,5 +65,39 @@ describe("capped worst case fits the KV blob ceiling", () => {
 describe("command budget constants", () => {
   it("leaves headroom between the soft limit and the real budget", () => {
     expect(KV_SOFT_LIMIT).toBeLessThan(KV_MONTHLY_COMMAND_BUDGET);
+  });
+});
+
+describe("isAnalyzableLanguage", () => {
+  it("accepts JS/TS", () => {
+    expect(isAnalyzableLanguage("JavaScript")).toBe(true);
+    expect(isAnalyzableLanguage("TypeScript")).toBe(true);
+  });
+
+  it("accepts the frontend languages a JS project can report as", () => {
+    // Verified against the real API: vuejs/core and withastro/astro report
+    // TypeScript, sveltejs/svelte reports JavaScript. These are listed for the
+    // cases where a repo's mix tips the other way.
+    for (const lang of ["Vue", "Svelte", "Astro", "MDX", "HTML", "CSS"]) {
+      expect(isAnalyzableLanguage(lang)).toBe(true);
+    }
+  });
+
+  it("rejects languages the analyzer cannot parse", () => {
+    for (const lang of ["Python", "Go", "Rust", "Java", "C#", "Ruby", "PHP", "C++"]) {
+      expect(isAnalyzableLanguage(lang)).toBe(false);
+    }
+  });
+
+  it("allows unknown/empty through — the gate must never be why a repo is refused", () => {
+    expect(isAnalyzableLanguage(null)).toBe(true);
+    expect(isAnalyzableLanguage(undefined)).toBe(true);
+    expect(isAnalyzableLanguage("")).toBe(true);
+  });
+
+  it("is case-sensitive, matching GitHub's exact casing", () => {
+    // GitHub always returns "TypeScript"/"JavaScript"; a lowercase value would
+    // mean we're reading something else, so failing closed is correct.
+    expect(isAnalyzableLanguage("typescript")).toBe(false);
   });
 });

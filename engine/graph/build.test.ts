@@ -21,7 +21,7 @@ const route: ImportantRoute = {
   method: "GET",
   path: "/health",
   handlerFile: "src/f00000.ts",
-  framework: "next",
+  framework: "next-app",
 } as ImportantRoute;
 
 const model: DatabaseModel = {

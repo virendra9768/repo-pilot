@@ -6,7 +6,7 @@ import { Boxes, FolderGit2, Lock, Search, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { timeAgo } from "@/lib/utils/time";
-import { MAX_REPO_SIZE_KB } from "@/lib/security/limits";
+import { isAnalyzableLanguage } from "@/lib/security/limits";
 
 export interface GithubRepo {
   fullName: string;
@@ -17,8 +17,6 @@ export interface GithubRepo {
   language: string | null;
   pushedAt: number;
   url: string;
-  /** Size in KB from GitHub. 0 when unknown (older cached entries). */
-  sizeKb?: number;
 }
 
 interface Props {
@@ -88,20 +86,20 @@ export function GithubRepoPicker({ onSelect, disabled }: Props) {
           <div className="px-3 py-6 text-center text-sm text-faint">No repositories found</div>
         ) : (
           filtered.map((r) => {
-            // Known-oversized repos would fall back to the demo on submit, so
-            // say so here instead of letting the user find out afterwards.
-            const tooLarge = (r.sizeKb ?? 0) > MAX_REPO_SIZE_KB;
+            // These would fall back to the demo on submit, so say so up front
+            // rather than letting the user find out afterwards. Language is the
+            // only pre-submit signal worth acting on — GitHub's reported size
+            // counts git history and doesn't predict whether a repo will fit.
+            const unsupported = !isAnalyzableLanguage(r.language);
             return (
             <button
               key={r.fullName}
               type="button"
-              disabled={disabled || tooLarge}
+              disabled={disabled || unsupported}
               onClick={() => onSelect(r)}
               title={
-                tooLarge
-                  ? `~${Math.round((r.sizeKb ?? 0) / 1024)} MB — over the ${Math.round(
-                      MAX_REPO_SIZE_KB / 1024,
-                    )} MB limit for live analysis`
+                unsupported
+                  ? `${r.language} project — RepoPilot analyzes JavaScript and TypeScript repositories`
                   : undefined
               }
               className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
@@ -117,9 +115,9 @@ export function GithubRepoPicker({ onSelect, disabled }: Props) {
                       <Lock className="h-2.5 w-2.5" /> Private
                     </Badge>
                   )}
-                  {tooLarge && (
+                  {unsupported && (
                     <Badge variant="outline" className="shrink-0 text-[10px] text-amber-400/90">
-                      <TriangleAlert className="h-2.5 w-2.5" /> Too large
+                      <TriangleAlert className="h-2.5 w-2.5" /> Not JS/TS
                     </Badge>
                   )}
                 </div>

@@ -52,42 +52,46 @@ export async function downloadRepoTarball(
 }
 
 /**
- * Repos larger than this are rejected up front so we never spend the request
- * budget downloading + walking them.
+ * The ONLY size guard, and deliberately so: it measures bytes we actually pull.
  *
- * GitHub's `size` counts history and assets, so it is a crude proxy for source
- * volume — a 60 MB repo can still be mostly binaries. It is deliberately just a
- * cheap pre-flight: the 5000-file walk cap remains the real quality guard. Past
- * this point a repo reliably hits that cap and yields a truncated analysis, so
- * the download isn't worth paying for.
+ * There used to be a pre-flight rejection on GitHub's reported repo size. That
+ * field includes git history, so it does not predict download size at all —
+ * measured ratios of reported-size to real tarball ran from 3x to 418x with no
+ * relationship to repo size:
+ *   nestjs/nest       474.6 MB reported ->  1.1 MB tarball  (418x)
+ *   expressjs/express   9.6 MB reported ->  0.1 MB tarball   (96x)
+ *   shadcn-ui/ui       66.0 MB reported -> 20.1 MB tarball    (3x)
+ * No threshold discriminates, so any pre-flight ceiling falsely rejects repos
+ * that would analyze fine — express at 0.1 MB, nest at 1.1 MB. It was removed.
  *
- * Defined in `lib/security/limits.ts` (client-safe) and re-exported here, which
- * is where server-side callers expect it.
+ * The byte-counting Transform below aborts the stream the instant this cap is
+ * exceeded, so worst-case download is this number regardless of how large the
+ * repo claims to be. That bounds the cost on its own.
+ *
+ * 20 MB covers express, axios, trpc, create-t3-app, vite, prisma, remix and
+ * nest; it rejects shadcn-ui/ui (20.1 MB) and next.js (48.9 MB). Raising it
+ * trades demo-day latency against coverage — the route budget is 60s total,
+ * shared with AST parsing and a 10-20s AI call.
  */
-export { MAX_REPO_SIZE_KB } from "@/lib/security/limits";
-
-/**
- * Hard ceiling on bytes actually pulled from the tarball stream.
- *
- * This is the only guard covering the path where `fetchRepoMeta` returns null —
- * a private repo without a sufficient token, or a rate-limited API — where the
- * size pre-flight is skipped entirely and an arbitrarily large archive would
- * otherwise extract into tmpdir unchecked. Compressed bytes, so it sits above
- * MAX_REPO_SIZE_KB rather than matching it.
- */
-export const MAX_TARBALL_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_TARBALL_BYTES = 20 * 1024 * 1024; // 20 MB
 
 export interface RepoMeta {
-  /** Repository size in KB, as reported by GitHub. */
+  /**
+   * Repository size in KB, as reported by GitHub. Includes git history, so it
+   * is NOT a usable proxy for download size (see MAX_TARBALL_BYTES). Retained
+   * for display only.
+   */
   sizeKb: number;
   private: boolean;
+  /** Primary language, or null when GitHub couldn't detect one. */
+  language: string | null;
 }
 
 /**
- * Fetch lightweight repo metadata (`GET /repos/{owner}/{repo}`) so we can reject
- * oversized repos before downloading the tarball. Best-effort: returns null on
- * any error (e.g. a private repo with no/insufficient token), in which case the
- * caller proceeds with the normal download flow.
+ * Fetch lightweight repo metadata (`GET /repos/{owner}/{repo}`) so we can skip
+ * repos the analyzer can't handle before downloading the tarball. Best-effort:
+ * returns null on any error (e.g. a private repo with no/insufficient token, or
+ * a rate limit), in which case the caller proceeds with the normal download.
  */
 export async function fetchRepoMeta(
   owner: string,
@@ -109,9 +113,19 @@ export async function fetchRepoMeta(
       signal: controller.signal,
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as { size?: number; private?: boolean };
+    const json = (await res.json()) as {
+      size?: number;
+      private?: boolean;
+      language?: string | null;
+    };
+    // Guard on `size` only. `language` is legitimately null for empty or
+    // undetected repos, so it must never fail the whole lookup.
     if (typeof json.size !== "number") return null;
-    return { sizeKb: json.size, private: Boolean(json.private) };
+    return {
+      sizeKb: json.size,
+      private: Boolean(json.private),
+      language: json.language ?? null,
+    };
   } catch {
     return null;
   } finally {

@@ -57,8 +57,8 @@ export const MAX_WALK_FILES = 5000;
  * TypeScript AST runs ~10-20x its source size. The parse cache holds every tree
  * at once, so without a ceiling a pathological repo would ask for tens of GB.
  *
- * MAX_PARSE_TOTAL_BYTES is the one that actually caps the heap (~8 MB source ->
- * ~80-160 MB of AST, always). The other two are cheap early-outs; the per-file
+ * MAX_PARSE_TOTAL_BYTES is the one that actually caps the heap (~5 MB source ->
+ * ~50-100 MB of AST, always). The other two are cheap early-outs; the per-file
  * cap also keeps checked-in minified bundles — worst AST-per-byte, least
  * informative — out of the cache. Files are visited in sorted path order, so
  * which ones get dropped is deterministic.

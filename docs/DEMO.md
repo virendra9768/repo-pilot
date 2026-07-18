@@ -61,8 +61,16 @@ change. All grounded in a real static analysis of the code, so it doesn't halluc
 ## Fallback story (if asked)
 - Pasting a real GitHub URL fetches it live as a tarball over HTTP (GitHub's
   `/repos/{owner}/{repo}/tarball`, default branch, no history, no `git` binary — so it runs
-  on serverless) and analyzes it the same way. Repos over 60 MB are rejected up front from
-  GitHub's reported size, and the download stream is capped at 80 MB.
+  on serverless) and analyzes it the same way.
+- **Scope is enforced up front.** RepoPilot analyzes JavaScript/TypeScript repos, so a repo
+  whose primary language is something else is declined before anything is downloaded, with a
+  message saying so. The analyzer is AST-based (`ts-morph`), so this is a real boundary rather
+  than a soft preference.
+- **Size is enforced on real bytes.** The download stream aborts past 20 MB. There is
+  deliberately no check on GitHub's reported repo size: that number includes git history and
+  doesn't predict download size — `nestjs/nest` reports 474 MB but its tarball is 1.1 MB, and
+  `expressjs/express` reports 9.6 MB for a 0.1 MB tarball. Any size ceiling would refuse repos
+  that analyze perfectly.
 - If the fetch fails — bad URL, private repo, rate limit, oversize — RepoPilot **falls back
   to a demo repo** with a clear notice explaining which case it hit; the dashboard never
   dead-ends.

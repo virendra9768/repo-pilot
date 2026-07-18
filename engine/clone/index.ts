@@ -6,8 +6,9 @@ import {
   downloadRepoTarball,
   fetchRepoMeta,
   removeDir,
-  MAX_REPO_SIZE_KB,
+  MAX_TARBALL_BYTES,
 } from "@/lib/git/download";
+import { isAnalyzableLanguage } from "@/lib/security/limits";
 
 /** Bundled demo repositories (see demo-repos/SOURCES.md). */
 export const DEMOS = {
@@ -116,11 +117,17 @@ export async function acquireWorkspace(
 
   const { owner, repo, slug } = validation.repo;
 
-  // #1: reject oversized repos up front so we never burn the request budget
-  // downloading + walking them. Best-effort — only rejects on a known size.
+  // Skip repos the analyzer can't do anything with, before paying for the
+  // download. Best-effort: only rejects on a known, clearly-not-JS language —
+  // unknown metadata (private repo without a token, rate limit) proceeds.
+  //
+  // There is deliberately NO size pre-flight here: GitHub's reported size counts
+  // git history and doesn't predict download size (nest reports 474 MB for a
+  // 1.1 MB tarball), so any ceiling falsely rejected working repos. The byte cap
+  // inside downloadRepoTarball is the real guard.
   const meta = await fetchRepoMeta(owner, repo, { token: opts.token });
-  if (meta && meta.sizeKb > MAX_REPO_SIZE_KB) {
-    return demoWorkspace(DEFAULT_DEMO, tooLargeReason(slug, meta.sizeKb));
+  if (meta && !isAnalyzableLanguage(meta.language)) {
+    return demoWorkspace(DEFAULT_DEMO, notJsReason(slug, meta.language));
   }
 
   const hadToken = Boolean(opts.token);
@@ -160,6 +167,15 @@ export function fallbackReason(
   triedToken: boolean,
 ): string {
   const demo = DEMOS[DEFAULT_DEMO].label;
+  // The stream guard is the only size limit, so give it a first-class message
+  // rather than letting it read as a generic network failure.
+  if (isArchiveTooLargeError(err)) {
+    const limitMb = Math.round(MAX_TARBALL_BYTES / 1024 / 1024);
+    return (
+      `${slug} is over the ${limitMb} MB download limit for live analysis — ` +
+      `try a smaller repo. Analyzed the ${demo} demo instead.`
+    );
+  }
   if (isAccessError(err)) {
     if (triedToken) {
       return (
@@ -178,14 +194,22 @@ export function fallbackReason(
   return `Couldn't fetch ${slug} (${cloneErrorHint(err)}) — analyzed the ${demo} demo instead.`;
 }
 
-/** Message shown when a repo exceeds the size limit and we skip analyzing it. */
-export function tooLargeReason(slug: string, sizeKb: number): string {
-  const sizeMb = Math.round(sizeKb / 1024);
-  const limitMb = Math.round(MAX_REPO_SIZE_KB / 1024);
+/**
+ * Message shown when a repo's primary language is outside what the analyzer
+ * supports. Phrased as scope, not failure — RepoPilot is a JS/TS tool by design.
+ */
+export function notJsReason(slug: string, language: string | null): string {
+  const what = language ? `looks like a ${language} project` : "isn't a JavaScript/TypeScript project";
   return (
-    `${slug} is ~${sizeMb} MB, over the ${limitMb} MB limit for live analysis — ` +
-    `try a smaller repo. Analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`
+    `${slug} ${what} — RepoPilot analyzes JavaScript and TypeScript repositories. ` +
+    `Analyzed the ${DEMOS[DEFAULT_DEMO].label} demo instead.`
   );
+}
+
+/** Matches the error thrown by the tarball stream's byte guard. */
+export function isArchiveTooLargeError(err: unknown): boolean {
+  const m = err instanceof Error ? err.message : String(err);
+  return /archive exceeds/i.test(m);
 }
 
 export function isAccessError(err: unknown): boolean {

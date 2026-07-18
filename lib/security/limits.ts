@@ -8,13 +8,44 @@
  */
 
 /**
- * GitHub's reported repo size ceiling (in KB) for live analysis.
+ * Primary languages we will analyze, as GitHub reports them.
+ *
+ * The analyzer is JS/TS-only (ts-morph + prisma-ast), so a Python or Go repo
+ * produces a near-empty Understanding Map that reads as broken rather than as
+ * out of scope. GitHub's `language` field comes free with the metadata call we
+ * already make, so this costs no extra request.
+ *
+ * Measured rather than assumed — the popular frameworks all report as JS/TS, so
+ * no per-framework special-casing is needed:
+ *   vuejs/core -> TypeScript      sveltejs/svelte -> JavaScript
+ *   withastro/astro -> TypeScript tailwindlabs/tailwindcss -> TypeScript
+ * Vue/Svelte/Astro/MDX are listed anyway in case a repo's mix tips that way.
+ * HTML and CSS are deliberately included: a static site with real JS in it often
+ * reports one of them.
  *
  * Lives here rather than beside the download code so client components (the repo
  * picker) can warn before submit without pulling node:stream into the bundle.
- * See `lib/git/download.ts` for why this number is a crude proxy.
  */
-export const MAX_REPO_SIZE_KB = 5 * 1024; // ~5 MB
+export const ANALYZABLE_LANGUAGES = new Set<string>([
+  "JavaScript",
+  "TypeScript",
+  "Vue",
+  "Svelte",
+  "Astro",
+  "MDX",
+  "HTML",
+  "CSS",
+]);
+
+/**
+ * A null/empty language means GitHub couldn't detect one — a brand-new or empty
+ * repo. Allow those through: the gate is best-effort and must never be the
+ * reason a legitimate repo is refused, matching how unknown metadata is treated
+ * everywhere else in the acquire path.
+ */
+export function isAnalyzableLanguage(language: string | null | undefined): boolean {
+  return !language || ANALYZABLE_LANGUAGES.has(language);
+}
 
 /**
  * Caps on the persisted intelligence graph.

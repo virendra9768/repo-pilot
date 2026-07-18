@@ -17,9 +17,6 @@ interface Repo {
   language: string | null;
   pushedAt: number;
   url: string;
-  /** Repo size in KB, as GitHub reports it — lets the picker flag repos that
-   *  would be rejected by the size guard before the user submits. */
-  sizeKb: number;
 }
 
 /** GitHub `/user/repos` item (only the fields we read). */
@@ -32,7 +29,6 @@ interface GhRepo {
   language: string | null;
   pushed_at: string | null;
   html_url: string;
-  size?: number;
 }
 
 /**
@@ -70,8 +66,6 @@ export async function GET() {
       language: r.language,
       pushedAt: r.pushed_at ? Date.parse(r.pushed_at) : 0,
       url: r.html_url,
-      // Already in the /user/repos response — carrying it through costs nothing.
-      sizeKb: typeof r.size === "number" ? r.size : 0,
     }));
 
     await kvSet(keyFor(s.userId), repos, CACHE_TTL_SECONDS);
