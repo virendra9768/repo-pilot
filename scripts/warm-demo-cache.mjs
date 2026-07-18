@@ -4,8 +4,17 @@
  * answers are persisted under `.cache/ai/` and then replay offline with zero
  * live API calls during judging.
  *
- *   1. npm run dev            (in one terminal, with a working GROQ/GEMINI key)
+ *   1. npm run dev            (in one terminal, with a working OPENROUTER_API_KEY)
  *   2. node scripts/warm-demo-cache.mjs
+ *
+ * `.cache/ai/` is gitignored, so it only helps the machine that ran this. To make
+ * the answers ship with the repo, copy them into `cache-seed/ai/` and commit —
+ * that tier is read-only, provider-agnostic, and is what lets a fresh clone demo
+ * with no key at all.
+ *
+ * The cache key is a hash of the system prompt + user prompt, and the prompt
+ * embeds the Understanding Map. Any change to deterministic engine output
+ * invalidates every seeded answer, so re-run and re-commit after engine changes.
  */
 
 const BASE = process.env.BASE_URL || "http://localhost:3000";

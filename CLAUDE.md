@@ -5,8 +5,8 @@ AI-powered repository-onboarding platform, built for a 3-day hackathon. Flow: us
 
 ## Stack
 - Next.js 16, TypeScript, Tailwind CSS, shadcn/ui, React Flow
-- `simple-git` for cloning
-- Gemini API (structured/JSON output mode) for the AI layer, behind a provider abstraction so it can be swapped later
+- GitHub tarball fetch over HTTP for acquiring repos (`lib/git/download.ts`) — no `git` binary, so it runs on serverless
+- OpenRouter (structured/JSON output, zod-validated) for the AI layer, behind a provider abstraction so it can be swapped later. Falls back to a mock provider when no key is set; a committed `cache-seed/ai/` tier replays the demo answers with no key and no network
 
 ## Folder structure
 ```
@@ -27,7 +27,7 @@ public/
 - **Business Flow Explorer is out of scope.** Skip it even if referenced elsewhere.
 - No auth, GitHub OAuth, private-repo support, semantic search/vector DB, multi-repo workspace, or VS Code extension.
 - The intelligence graph is plain `Node[]/Edge[]` in memory — not a graph database.
-- Talk to the Original Developer and Repository GPS are conditional — only build if the day's core checkpoint is already met (see day prompts).
+- Talk to the Original Developer and Repository GPS **shipped** — both are fully built and wired into the dashboard nav. (They were originally scoped as conditional stretch goals; that no longer applies.)
 
 ## Locked Understanding Map schema
 Every feature consumes this. Do not change its shape without flagging it first.

@@ -3,7 +3,10 @@
 A fixed, rehearsed walkthrough that runs entirely on the **two bundled demo repos**.
 Never rely on a live GitHub clone during judging — use the demo buttons.
 
-> Setup: `.env.local` has `GEMINI_API_KEY=…`, then `npm run dev` → open http://localhost:3000
+> Setup: `.env.local` has `OPENROUTER_API_KEY=…`, then `npm run dev` → open http://localhost:3000
+>
+> The prompts in this script are pre-baked into `cache-seed/ai/` (committed), so they replay
+> from cache even with no API key and no network. Verified 16/16 on the current engine output.
 
 ---
 
@@ -56,9 +59,13 @@ change. All grounded in a real static analysis of the code, so it doesn't halluc
 ---
 
 ## Fallback story (if asked)
-- Pasting a real GitHub URL clones it live (`simple-git`, shallow) and analyzes it the
-  same way. If a clone fails, RepoPilot **falls back to a demo repo** with a clear notice
-  — the dashboard never dead-ends.
+- Pasting a real GitHub URL fetches it live as a tarball over HTTP (GitHub's
+  `/repos/{owner}/{repo}/tarball`, default branch, no history, no `git` binary — so it runs
+  on serverless) and analyzes it the same way. Repos over 60 MB are rejected up front from
+  GitHub's reported size, and the download stream is capped at 80 MB.
+- If the fetch fails — bad URL, private repo, rate limit, oversize — RepoPilot **falls back
+  to a demo repo** with a clear notice explaining which case it hit; the dashboard never
+  dead-ends.
 - Everything the AI says is grounded in the deterministic Understanding Map; node/file
   references are validated against real paths (unverified ones are flagged).
 

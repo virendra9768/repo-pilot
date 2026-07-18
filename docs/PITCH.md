@@ -33,5 +33,6 @@ actual files, and the app flags anything it can't verify.
 - **Feels premium.** A dark, Linear/Cursor-grade UI with real motion — not an admin dashboard.
 
 ## Stack
-Next.js 16 · TypeScript · Tailwind v4 · Framer Motion · React Flow · `simple-git` ·
+Next.js 16 · TypeScript · Tailwind v4 · Framer Motion · React Flow · `ts-morph` (AST analysis) ·
+GitHub tarball fetch (no `git` binary — runs on serverless) ·
 OpenRouter (structured JSON output) behind a swappable provider abstraction.
