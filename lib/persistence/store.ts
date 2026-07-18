@@ -8,6 +8,7 @@ import {
 import { resolveDemoKey } from "@/engine/clone";
 import { validateGitHubUrl } from "@/lib/git/validate";
 import { kvGet, kvSet } from "@/lib/persistence/kv";
+import { MAX_KV_BLOB_BYTES } from "@/lib/security/limits";
 
 export interface AnalyzedRepo {
   id: string;
@@ -78,13 +79,24 @@ async function readByKey(
   return undefined;
 }
 
-/** Look up a cached analysis by id: private (owner-scoped) first, then public shared. */
+/**
+ * Look up a cached analysis by id: public shared key first, then the private
+ * (owner-scoped) one.
+ *
+ * Public-first is a deliberate command-budget choice. Most repos are public, and
+ * trying `priv:` first made every signed-in request pay a guaranteed-miss GET.
+ * This is safe because `getOrAnalyze` never writes a private repo under the
+ * public key, and URL-fallbacks are never cached at all — so a public hit can
+ * only ever be a genuinely public analysis.
+ *
+ * Accepted tradeoff: a repo that was analyzed while public and later made
+ * private keeps serving the public blob until its TTL expires.
+ */
 async function readCachedRepo(id: string, session?: SessionCtx): Promise<AnalyzedRepo | undefined> {
-  if (session) {
-    const priv = await readByKey(privKey(session.userId, id), null); // never on disk
-    if (priv) return priv;
-  }
-  return readByKey(pubKey(id), id);
+  const pub = await readByKey(pubKey(id), id);
+  if (pub) return pub;
+  if (session) return readByKey(privKey(session.userId, id), null); // never on disk
+  return undefined;
 }
 
 /** Reconstruct the analyze input from an id (for cache-miss re-hydration). */
@@ -146,8 +158,24 @@ export async function getOrAnalyze(
   // Public → shared key, memory + KV + disk.
   const fullKey = isPrivate && session ? privKey(session.userId, id) : pubKey(id);
   store.set(fullKey, repo);
-  await kvSet(fullKey, repo, isPrivate ? PRIV_TTL_SECONDS : REPO_TTL_SECONDS);
-  if (!isPrivate) await writeDisk(repo);
+
+  // Serialize once: the same string measures the blob and writes the disk copy.
+  const payload = JSON.stringify(repo);
+  const bytes = Buffer.byteLength(payload, "utf8");
+  if (bytes <= MAX_KV_BLOB_BYTES) {
+    await kvSet(fullKey, repo, isPrivate ? PRIV_TTL_SECONDS : REPO_TTL_SECONDS);
+  } else {
+    // Upstash rejects oversized values and kvSet swallows the failure, so an
+    // unguarded write would look fine while re-analyzing on every request.
+    // Memory + disk still cover it; this is worth seeing in the logs.
+    console.warn(
+      `[store] ${id}: ${Math.round(bytes / 1024)} KB exceeds the ${Math.round(
+        MAX_KV_BLOB_BYTES / 1024,
+      )} KB cache limit — skipping the KV write (memory + disk only).`,
+    );
+  }
+
+  if (!isPrivate) await writeDisk(id, payload);
   return repo;
 }
 
@@ -160,10 +188,11 @@ async function readDisk(id: string): Promise<AnalyzedRepo | undefined> {
   }
 }
 
-async function writeDisk(repo: AnalyzedRepo): Promise<void> {
+/** `payload` is the already-serialized repo, reused from the KV size check. */
+async function writeDisk(id: string, payload: string): Promise<void> {
   try {
     await mkdir(CACHE_DIR, { recursive: true });
-    await writeFile(join(CACHE_DIR, diskFile(repo.id)), JSON.stringify(repo), "utf8");
+    await writeFile(join(CACHE_DIR, diskFile(id)), payload, "utf8");
   } catch {
     /* best-effort cache; ignore write failures */
   }

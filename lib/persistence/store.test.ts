@@ -3,9 +3,19 @@ import type { AnalysisResult } from "@/engine/analyze";
 
 // --- Mocks: keep the store off the network, the AI engine, KV, and disk. ---
 const kvStore = new Map<string, unknown>();
+// Key logs live in test-file scope so they survive vi.resetModules(), which the
+// cache-key-order test needs in order to get a store with an empty memory Map.
+const kvGetKeys: string[] = [];
+const kvSetKeys: string[] = [];
 vi.mock("@/lib/persistence/kv", () => ({
-  kvGet: vi.fn(async (k: string) => kvStore.get(k)),
-  kvSet: vi.fn(async (k: string, v: unknown) => void kvStore.set(k, v)),
+  kvGet: vi.fn(async (k: string) => {
+    kvGetKeys.push(k);
+    return kvStore.get(k);
+  }),
+  kvSet: vi.fn(async (k: string, v: unknown) => {
+    kvSetKeys.push(k);
+    kvStore.set(k, v);
+  }),
 }));
 vi.mock("node:fs/promises", () => ({
   mkdir: vi.fn(async () => undefined),
@@ -20,6 +30,7 @@ vi.mock("@/engine/analyze", () => ({ analyzeRepository: (...a: unknown[]) => ana
 import { computeId, inputFromId, getOrAnalyze } from "./store";
 import { kvSet } from "@/lib/persistence/kv";
 import { writeFile } from "node:fs/promises";
+import { MAX_KV_BLOB_BYTES } from "@/lib/security/limits";
 
 /** Minimal analysis result; only the fields the store reads matter. */
 function result(source: "clone" | "demo", isPrivate = false): AnalysisResult {
@@ -33,6 +44,8 @@ function result(source: "clone" | "demo", isPrivate = false): AnalysisResult {
 beforeEach(() => {
   vi.clearAllMocks();
   kvStore.clear();
+  kvGetKeys.length = 0;
+  kvSetKeys.length = 0;
 });
 
 describe("computeId", () => {
@@ -123,5 +136,76 @@ describe("getOrAnalyze caching & isolation", () => {
     analyzeRepository.mockResolvedValue(result("demo", false)); // anon would fall back
     await getOrAnalyze(input);
     expect(analyzeRepository).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("KV blob size guard", () => {
+  /** A result whose contextPack alone blows past the blob ceiling. */
+  function oversized(): AnalysisResult {
+    const r = result("clone", false);
+    return {
+      ...r,
+      contextPack: {
+        snippets: { big: "x".repeat(MAX_KV_BLOB_BYTES + 1024) },
+      } as unknown as AnalysisResult["contextPack"],
+    };
+  }
+
+  it("skips the KV write for an oversized blob but still returns and writes disk", async () => {
+    analyzeRepository.mockResolvedValue(oversized());
+    const repo = await getOrAnalyze({ kind: "url", url: "https://github.com/big/one" });
+
+    // The analysis is still served — only the durable cache write is skipped.
+    expect(repo.workspace.source).toBe("clone");
+    expect(kvSetKeys).toHaveLength(0);
+    expect(vi.mocked(writeFile)).toHaveBeenCalled();
+  });
+
+  it("still writes a normal-sized blob to KV", async () => {
+    analyzeRepository.mockResolvedValue(result("clone", false));
+    await getOrAnalyze({ kind: "url", url: "https://github.com/small/one" });
+
+    expect(kvSetKeys).toHaveLength(1);
+  });
+});
+
+describe("cache key ordering", () => {
+  it("checks the public key first, so a signed-in hit on a public repo costs one GET", async () => {
+    analyzeRepository.mockResolvedValue(result("clone", false));
+    const input = { kind: "url", url: "https://github.com/pub/order" } as const;
+    const session = { userId: "42", token: "t" };
+
+    await getOrAnalyze(input, session); // populates KV under the public key
+
+    // A fresh module gets an empty memory Map, forcing the next read through KV.
+    vi.resetModules();
+    kvGetKeys.length = 0;
+    analyzeRepository.mockClear();
+    const fresh = await import("./store");
+    await fresh.getOrAnalyze(input, session);
+
+    expect(analyzeRepository).not.toHaveBeenCalled();
+    // The point of the ordering: no wasted priv: lookup on the hit path.
+    expect(kvGetKeys).toHaveLength(1);
+    expect(kvGetKeys[0]).toMatch(/^repo:v\d+:gh__pub__order$/);
+  });
+
+  it("still falls back to the private key when the public one misses", async () => {
+    analyzeRepository.mockResolvedValue(result("clone", true));
+    const input = { kind: "url", url: "https://github.com/priv/order" } as const;
+    const session = { userId: "42", token: "t" };
+
+    await getOrAnalyze(input, session); // cached under priv:42
+
+    vi.resetModules();
+    kvGetKeys.length = 0;
+    analyzeRepository.mockClear();
+    const fresh = await import("./store");
+    await fresh.getOrAnalyze(input, session);
+
+    expect(analyzeRepository).not.toHaveBeenCalled();
+    expect(kvGetKeys).toHaveLength(2);
+    expect(kvGetKeys[0]).toMatch(/^repo:v\d+:gh__priv__order$/);
+    expect(kvGetKeys[1]).toMatch(/^priv:v\d+:42:gh__priv__order$/);
   });
 });

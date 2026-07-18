@@ -1,4 +1,4 @@
-import { Readable } from "node:stream";
+import { Readable, Transform } from "node:stream";
 import { pipeline } from "node:stream/promises";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -16,9 +16,10 @@ import { extract } from "tar";
 export async function downloadRepoTarball(
   owner: string,
   repo: string,
-  opts: { timeoutMs?: number; token?: string } = {},
+  opts: { timeoutMs?: number; token?: string; maxBytes?: number } = {},
 ): Promise<string> {
   const timeoutMs = opts.timeoutMs ?? 60_000;
+  const maxBytes = opts.maxBytes ?? MAX_TARBALL_BYTES;
   const dir = await mkdtemp(join(tmpdir(), "repopilot-"));
 
   const headers: Record<string, string> = { "User-Agent": "RepoPilot" };
@@ -38,6 +39,7 @@ export async function downloadRepoTarball(
     // removes the top-level "<owner>-<repo>-<sha>/" wrapper so files land in `dir`.
     await pipeline(
       Readable.fromWeb(res.body as Parameters<typeof Readable.fromWeb>[0]),
+      byteLimit(maxBytes),
       extract({ cwd: dir, strip: 1 }),
     );
     return dir;
@@ -49,9 +51,31 @@ export async function downloadRepoTarball(
   }
 }
 
-/** GitHub's reported repo size ceiling (in KB). Larger repos are rejected up
- *  front so we never spend the request budget downloading + walking them. */
-export const MAX_REPO_SIZE_KB = 150 * 1024; // ~150 MB
+/**
+ * Repos larger than this are rejected up front so we never spend the request
+ * budget downloading + walking them.
+ *
+ * GitHub's `size` counts history and assets, so it is a crude proxy for source
+ * volume — a 60 MB repo can still be mostly binaries. It is deliberately just a
+ * cheap pre-flight: the 5000-file walk cap remains the real quality guard. Past
+ * this point a repo reliably hits that cap and yields a truncated analysis, so
+ * the download isn't worth paying for.
+ *
+ * Defined in `lib/security/limits.ts` (client-safe) and re-exported here, which
+ * is where server-side callers expect it.
+ */
+export { MAX_REPO_SIZE_KB } from "@/lib/security/limits";
+
+/**
+ * Hard ceiling on bytes actually pulled from the tarball stream.
+ *
+ * This is the only guard covering the path where `fetchRepoMeta` returns null —
+ * a private repo without a sufficient token, or a rate-limited API — where the
+ * size pre-flight is skipped entirely and an arbitrarily large archive would
+ * otherwise extract into tmpdir unchecked. Compressed bytes, so it sits above
+ * MAX_REPO_SIZE_KB rather than matching it.
+ */
+export const MAX_TARBALL_BYTES = 80 * 1024 * 1024; // 80 MB
 
 export interface RepoMeta {
   /** Repository size in KB, as reported by GitHub. */
@@ -93,6 +117,25 @@ export async function fetchRepoMeta(
   } finally {
     clearTimeout(timer);
   }
+}
+
+/**
+ * Pass-through that aborts the pipeline once `max` bytes have flowed. Failing
+ * mid-stream means `pipeline` rejects, and the caller's catch removes the
+ * partially-extracted temp dir — same path as any other download failure.
+ */
+function byteLimit(max: number): Transform {
+  let seen = 0;
+  return new Transform({
+    transform(chunk: Buffer, _enc, cb) {
+      seen += chunk.length;
+      if (seen > max) {
+        cb(new Error(`Repository archive exceeds ${Math.round(max / 1024 / 1024)} MB limit`));
+        return;
+      }
+      cb(null, chunk);
+    },
+  });
 }
 
 /** Best-effort recursive delete; never throws. Retries transient locks. */

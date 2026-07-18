@@ -27,6 +27,13 @@ export interface AnalysisResult {
     private?: boolean;
     /** True when the file cap was hit — analysis ran on the first N files only. */
     truncated?: boolean;
+    /**
+     * True when a downstream budget dropped detail the walk had already
+     * collected: the AST parse cache, the graph, or the context pack. Distinct
+     * from `truncated`, which is about the walk itself. Optional so blobs cached
+     * before this field existed still read cleanly.
+     */
+    analysisCapped?: boolean;
   };
   understandingMap: UnderstandingMap;
   /** Extra detail captured before workspace cleanup (server-side use). */
@@ -57,16 +64,18 @@ export async function analyzeRepository(
     let routes: ImportantRoute[];
     let models: DatabaseModel[];
     let importLinks: ImportLink[];
+    let parseCapped = false;
     try {
       routes = analyzeRoutes(files, metadata.allDependencies, parsed);
       models = analyzeDatabase(files, parsed);
       importLinks = analyzeDependencies(files, importAliases, parsed);
+      parseCapped = parsed.stats.capped;
     } finally {
       // An analyzer throwing must not leak every tree for the rest of the request.
       parsed.dispose();
     }
 
-    const graph = buildGraph({ files, importLinks, routes, models });
+    const { graph, capped: graphCapped } = buildGraph({ files, importLinks, routes, models });
 
     const understandingMap = generateUnderstandingMap({
       files,
@@ -79,7 +88,11 @@ export async function analyzeRepository(
     });
 
     // Capture extra detail while the files are still on disk.
-    const contextPack = buildContextPack(files, metadata, understandingMap);
+    const { pack: contextPack, capped: contextCapped } = buildContextPack(
+      files,
+      metadata,
+      understandingMap,
+    );
 
     return {
       workspace: {
@@ -89,6 +102,7 @@ export async function analyzeRepository(
         fileCount: files.length,
         private: workspace.private,
         truncated,
+        analysisCapped: parseCapped || graphCapped || contextCapped,
       },
       understandingMap,
       contextPack,

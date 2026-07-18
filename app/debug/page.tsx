@@ -10,10 +10,20 @@ const DEMOS = [
 
 type ApiResponse = ({ ok: true } & AnalysisResult) | { ok: false; error: string };
 
+interface Usage {
+  total: number;
+  pending: number;
+  softLimit: number;
+  budget: number;
+  overBudget: boolean;
+  kvEnabled: boolean;
+}
+
 export default function DebugPage() {
   const [url, setUrl] = useState("");
   const [loading, setLoading] = useState(false);
   const [data, setData] = useState<ApiResponse | null>(null);
+  const [usage, setUsage] = useState<Usage | null>(null);
 
   async function run(query: string) {
     setLoading(true);
@@ -25,6 +35,11 @@ export default function DebugPage() {
       setData({ ok: false, error: err instanceof Error ? err.message : String(err) });
     } finally {
       setLoading(false);
+      try {
+        setUsage(await (await fetch("/api/debug/usage")).json());
+      } catch {
+        /* usage is advisory; a failure here must not mask the analysis result */
+      }
     }
   }
 
@@ -85,6 +100,12 @@ export default function DebugPage() {
             {data.workspace.fallbackReason && (
               <div className="text-amber-600">⚠ {data.workspace.fallbackReason}</div>
             )}
+            {data.workspace.truncated && (
+              <div className="text-amber-600">⚠ walk truncated at the file cap</div>
+            )}
+            {data.workspace.analysisCapped && (
+              <div className="text-amber-600">⚠ analysis capped (parse / graph / context pack)</div>
+            )}
             {map && (
               <div className="mt-2 grid grid-cols-2 gap-x-6 gap-y-1 text-neutral-600 dark:text-neutral-300 sm:grid-cols-4">
                 <span>entryPoints: {map.entryPoints.length}</span>
@@ -100,6 +121,23 @@ export default function DebugPage() {
               </div>
             )}
           </section>
+
+          {usage && (
+            <section className="rounded border border-neutral-300 p-3 text-neutral-600 dark:border-neutral-700 dark:text-neutral-300">
+              <b className="text-neutral-900 dark:text-neutral-100">Upstash commands</b>{" "}
+              {usage.kvEnabled ? (
+                <>
+                  {usage.total + usage.pending} / {usage.budget} used ({usage.pending} not yet
+                  flushed) — soft limit {usage.softLimit}
+                  {usage.overBudget && (
+                    <span className="text-amber-600"> ⚠ over budget, KV disabled</span>
+                  )}
+                </>
+              ) : (
+                <>KV disabled — running on memory + disk</>
+              )}
+            </section>
+          )}
 
           <pre className="overflow-x-auto rounded border border-neutral-300 bg-neutral-50 p-3 text-xs leading-relaxed dark:border-neutral-700 dark:bg-neutral-900">
             {JSON.stringify(map, null, 2)}

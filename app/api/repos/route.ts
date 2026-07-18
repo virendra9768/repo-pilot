@@ -1,10 +1,14 @@
 import { analyzeForRequest } from "@/lib/auth/access";
+import { enforceRateLimit, IMPORT_LIMIT } from "@/lib/security/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, "import", IMPORT_LIMIT);
+  if (limited) return limited;
+
   let body: { demo?: string; url?: string };
   try {
     body = await request.json();

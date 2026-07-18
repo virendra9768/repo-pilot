@@ -2,10 +2,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
-import { Boxes, FolderGit2, Lock, Search } from "lucide-react";
+import { Boxes, FolderGit2, Lock, Search, TriangleAlert } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { timeAgo } from "@/lib/utils/time";
+import { MAX_REPO_SIZE_KB } from "@/lib/security/limits";
 
 export interface GithubRepo {
   fullName: string;
@@ -16,6 +17,8 @@ export interface GithubRepo {
   language: string | null;
   pushedAt: number;
   url: string;
+  /** Size in KB from GitHub. 0 when unknown (older cached entries). */
+  sizeKb?: number;
 }
 
 interface Props {
@@ -84,12 +87,23 @@ export function GithubRepoPicker({ onSelect, disabled }: Props) {
         ) : filtered.length === 0 ? (
           <div className="px-3 py-6 text-center text-sm text-faint">No repositories found</div>
         ) : (
-          filtered.map((r) => (
+          filtered.map((r) => {
+            // Known-oversized repos would fall back to the demo on submit, so
+            // say so here instead of letting the user find out afterwards.
+            const tooLarge = (r.sizeKb ?? 0) > MAX_REPO_SIZE_KB;
+            return (
             <button
               key={r.fullName}
               type="button"
-              disabled={disabled}
+              disabled={disabled || tooLarge}
               onClick={() => onSelect(r)}
+              title={
+                tooLarge
+                  ? `~${Math.round((r.sizeKb ?? 0) / 1024)} MB — over the ${Math.round(
+                      MAX_REPO_SIZE_KB / 1024,
+                    )} MB limit for live analysis`
+                  : undefined
+              }
               className="group flex w-full items-center gap-3 rounded-lg px-2.5 py-2 text-left transition-colors hover:bg-muted disabled:cursor-not-allowed disabled:opacity-50"
             >
               <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-accent/10 text-accent-bright">
@@ -101,6 +115,11 @@ export function GithubRepoPicker({ onSelect, disabled }: Props) {
                   {r.private && (
                     <Badge variant="outline" className="shrink-0 text-[10px]">
                       <Lock className="h-2.5 w-2.5" /> Private
+                    </Badge>
+                  )}
+                  {tooLarge && (
+                    <Badge variant="outline" className="shrink-0 text-[10px] text-amber-400/90">
+                      <TriangleAlert className="h-2.5 w-2.5" /> Too large
                     </Badge>
                   )}
                 </div>
@@ -121,7 +140,8 @@ export function GithubRepoPicker({ onSelect, disabled }: Props) {
                 </div>
               </div>
             </button>
-          ))
+            );
+          })
         )}
       </div>
     </motion.div>

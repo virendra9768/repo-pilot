@@ -115,6 +115,16 @@ export default async function RepoLayout({
             </p>
           )}
 
+          {/* Only when the walk itself wasn't truncated — otherwise the banner
+              above already says the analysis is partial. */}
+          {!workspace.truncated && workspace.analysisCapped && (
+            <p className="mt-3 flex items-center gap-1.5 text-xs text-amber-400/90">
+              <TriangleAlert className="h-3.5 w-3.5" />
+              Large repository — some detail was dropped to stay within analysis limits, so
+              routes, models, or import links may be incomplete.
+            </p>
+          )}
+
           <div className="mt-4 flex flex-wrap gap-1.5">
             {techs.map((t) => {
               const Icon = techIcon(t.name);

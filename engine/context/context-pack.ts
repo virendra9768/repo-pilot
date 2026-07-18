@@ -1,5 +1,6 @@
 import type { RepoFile, RepoMetadata, RepoContextPack } from "@/types/analysis";
 import type { UnderstandingMap } from "@/types/understanding-map";
+import { MAX_FILE_LINES_ENTRIES } from "@/lib/security/limits";
 
 const README_MAX = 2000;
 const SNIPPET_LINES = 40;
@@ -7,6 +8,12 @@ const SNIPPET_FILES = 8;
 const CODE_EXT = new Set([
   ".ts", ".tsx", ".js", ".jsx", ".mjs", ".cjs", ".json", ".prisma", ".css", ".md",
 ]);
+
+export interface ContextPackResult {
+  pack: RepoContextPack;
+  /** True when the `fileLines` cap dropped entries. */
+  capped: boolean;
+}
 
 /**
  * Capture the extra repo detail the AI layer needs, BEFORE the temp workspace
@@ -17,7 +24,7 @@ export function buildContextPack(
   files: RepoFile[],
   metadata: RepoMetadata,
   map: UnderstandingMap,
-): RepoContextPack {
+): ContextPackResult {
   const byPath = new Map(files.map((f) => [f.relPath, f]));
 
   let readmeExcerpt: string | undefined;
@@ -26,11 +33,25 @@ export function buildContextPack(
     if (readme) readmeExcerpt = readme.read().slice(0, README_MAX);
   }
 
+  // Critical files first, so the paths most likely to be referenced survive the
+  // cap; the rest follow in walk order.
+  const criticalPaths = new Set(map.criticalFiles.map((cf) => cf.path));
+  const ordered = [
+    ...files.filter((f) => criticalPaths.has(f.relPath)),
+    ...files.filter((f) => !criticalPaths.has(f.relPath)),
+  ];
+
   const fileLines: Record<string, number> = {};
-  for (const f of files) {
-    if (f.isText && CODE_EXT.has(f.ext)) {
-      fileLines[f.relPath] = countLines(f.read());
+  let lineEntries = 0;
+  let capped = false;
+  for (const f of ordered) {
+    if (!f.isText || !CODE_EXT.has(f.ext)) continue;
+    if (lineEntries >= MAX_FILE_LINES_ENTRIES) {
+      capped = true;
+      break;
     }
+    fileLines[f.relPath] = countLines(f.read());
+    lineEntries++;
   }
 
   const snippets: Record<string, string> = {};
@@ -41,7 +62,10 @@ export function buildContextPack(
     }
   }
 
-  return { readmeExcerpt, fileLines, snippets, folderTree: buildFolderTree(files) };
+  return {
+    pack: { readmeExcerpt, fileLines, snippets, folderTree: buildFolderTree(files) },
+    capped,
+  };
 }
 
 function countLines(content: string): number {

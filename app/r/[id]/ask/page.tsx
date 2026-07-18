@@ -1,4 +1,4 @@
-import { getRepoOrRehydrate } from "@/lib/persistence/store";
+import { loadRepoForRequest } from "@/lib/auth/access";
 import { DeveloperChat } from "@/features/original-developer/DeveloperChat";
 
 export default async function AskPage({
@@ -7,6 +7,8 @@ export default async function AskPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const repo = await getRepoOrRehydrate(id);
+  // Must go through loadRepoForRequest so the session is threaded: without it a
+  // private repo misses its owner-scoped key and triggers a full re-analysis.
+  const { repo } = await loadRepoForRequest(id);
   return <DeveloperChat id={id} repoName={repo?.workspace.displayName ?? "this repo"} />;
 }

@@ -1,6 +1,7 @@
 import { loadRepoForRequest } from "@/lib/auth/access";
 import { getProvider } from "@/lib/ai";
 import { askDeveloperContext, knownFilePaths } from "@/engine/context/slices";
+import { enforceRateLimit, AI_LIMIT } from "@/lib/security/rate-limit";
 import {
   buildAskDeveloperPrompt,
   askDeveloperSchema,
@@ -12,6 +13,9 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
+  const limited = enforceRateLimit(request, "ai", AI_LIMIT);
+  if (limited) return limited;
+
   let body: { id?: string; question?: string; history?: ChatMessage[] };
   try {
     body = await request.json();
