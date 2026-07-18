@@ -65,7 +65,7 @@ export const MAX_WALK_FILES = 5000;
  */
 export const MAX_PARSE_FILES = 2000;
 export const MAX_PARSE_FILE_BYTES = 256 * 1024; // 256 KB
-export const MAX_PARSE_TOTAL_BYTES = 5 * 1024 * 1024; // 5 MB
+export const MAX_PARSE_TOTAL_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export function isIgnoredDir(name: string): boolean {
   return IGNORED_DIRS.has(name);

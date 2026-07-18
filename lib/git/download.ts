@@ -73,7 +73,7 @@ export async function downloadRepoTarball(
  * trades demo-day latency against coverage — the route budget is 60s total,
  * shared with AST parsing and a 10-20s AI call.
  */
-export const MAX_TARBALL_BYTES = 20 * 1024 * 1024; // 20 MB
+export const MAX_TARBALL_BYTES = 50 * 1024 * 1024; // 50 MB
 
 export interface RepoMeta {
   /**

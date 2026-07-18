@@ -9,7 +9,7 @@ vi.mock("@/lib/git/download", () => ({
   fetchRepoMeta: fetchRepoMetaMock,
   downloadRepoTarball: downloadMock,
   removeDir: removeDirMock,
-  MAX_TARBALL_BYTES: 20 * 1024 * 1024,
+  MAX_TARBALL_BYTES: 50 * 1024 * 1024,
 }));
 
 import { acquireWorkspace } from "./index";
