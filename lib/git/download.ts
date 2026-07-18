@@ -75,7 +75,7 @@ export { MAX_REPO_SIZE_KB } from "@/lib/security/limits";
  * otherwise extract into tmpdir unchecked. Compressed bytes, so it sits above
  * MAX_REPO_SIZE_KB rather than matching it.
  */
-export const MAX_TARBALL_BYTES = 80 * 1024 * 1024; // 80 MB
+export const MAX_TARBALL_BYTES = 5 * 1024 * 1024; // 5 MB
 
 export interface RepoMeta {
   /** Repository size in KB, as reported by GitHub. */

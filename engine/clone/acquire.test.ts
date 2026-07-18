@@ -9,7 +9,7 @@ vi.mock("@/lib/git/download", () => ({
   fetchRepoMeta: fetchRepoMetaMock,
   downloadRepoTarball: downloadMock,
   removeDir: removeDirMock,
-  MAX_REPO_SIZE_KB: 150 * 1024,
+  MAX_REPO_SIZE_KB: 5 * 1024,
 }));
 
 import { acquireWorkspace } from "./index";
@@ -20,7 +20,7 @@ beforeEach(() => vi.clearAllMocks());
 
 describe("acquireWorkspace size pre-check (#1)", () => {
   it("rejects an oversized repo to the demo before downloading", async () => {
-    fetchRepoMetaMock.mockResolvedValue({ sizeKb: 200 * 1024, private: false });
+    fetchRepoMetaMock.mockResolvedValue({ sizeKb: 10 * 1024, private: false });
     const { workspace } = await acquireWorkspace(url("https://github.com/big/repo"));
 
     expect(workspace.source).toBe("demo");

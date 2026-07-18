@@ -14,7 +14,7 @@
  * picker) can warn before submit without pulling node:stream into the bundle.
  * See `lib/git/download.ts` for why this number is a crude proxy.
  */
-export const MAX_REPO_SIZE_KB = 60 * 1024; // ~60 MB
+export const MAX_REPO_SIZE_KB = 5 * 1024; // ~5 MB
 
 /**
  * Caps on the persisted intelligence graph.
